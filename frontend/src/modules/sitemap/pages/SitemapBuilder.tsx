@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { AlignLeft, Download, Layers, Play, Zap, HelpCircle, LayoutGrid, ListTree, Loader2, ChevronDown, ChevronRight, Plus, Minus, Share2, Palette, Eye, EyeOff, Monitor, PenTool, Cpu, Boxes, Type, TrendingUp, Box, Grid, Sparkles, Layout, Route, Map } from 'lucide-react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { AlignLeft, Download, Layers, Play, Zap, HelpCircle, LayoutGrid, ListTree, Loader2, ChevronDown, ChevronRight, Plus, Minus, Share2, Palette, Eye, EyeOff, Monitor, PenTool, Cpu, Boxes, Type, TrendingUp, Box, Grid, Sparkles, Layout, Route, Map, History, FileJson, FileText, Image as ImageIcon } from 'lucide-react';
+import { toPng } from 'html-to-image';
 import axios from 'axios';
 import SitemapRenderer from '../components/SitemapRenderer';
 import { parseIndentedText } from '../utils/parseIndent';
@@ -12,15 +13,23 @@ const api = axios.create({
 
 const SitemapBuilder = () => {
     // View Viewport States
-    const [rawText, setRawText] = useState("Holding Global S.A.\n  Divisão de Tecnologia\n    Engenharia de Software\n      Sistemas Web\n      Mobile Apps\n    Arquitetura Cloud\n      Infraestrutura\n      Segurança Cibernética\n  Divisão Comercial\n    Marketing Digital\n      Growth Hacking\n      Social Media\n    Vendas B2B\n      Key Accounts\n      Parcerias Estratégicas");
+    const [rawText, setRawText] = useState("1- EMPRESA (TÍTULO)\n1.1- Nossos Serviços\n1.1.1- Consultoria Estratégica\n1.1.2- Desenvolvimento de Sistemas\n1.2- Soluções em Nuvem\n2- CASES DE SUCESSO\n2.1- Projeto Alpha\n2.2- Projeto Beta\n3- SOBRE NÓS\n4- CONTATO");
     const [graphData, setGraphData] = useState({ nodes: [], edges: [] });
-    
+
     // Core Logic States
     const [templateId, setTemplateId] = useState('mindmap'); // mindmap, sitemap, orgchart
     const [layoutDirection, setLayoutDirection] = useState('vertical'); // vertical, horizontal
     const [nodeColor, setNodeColor] = useState('#3b82f6'); // Cor padrão (Azul)
     const [colorMode, setColorMode] = useState<'mono' | 'multi'>('mono');
     const [edgeColorMode, setEdgeColorMode] = useState<'colored' | 'bw'>('colored');
+    const [spacing, setSpacing] = useState('m'); // pp, p, m, g, gg
+
+    // History for Undo (Ctrl+Z)
+    const [history, setHistory] = useState<string[]>([]);
+    const MAX_HISTORY = 50;
+
+    const sitemapRef = useRef<HTMLDivElement>(null);
+    const rendererRef = useRef<any>(null);
 
     // Interaction States
     const [isGenerating, setIsGenerating] = useState(false);
@@ -59,6 +68,37 @@ const SitemapBuilder = () => {
         { id: 'zigzag', label: 'Zig-Zag Trail', desc: 'Caminho geométrico em Z para jornadas dinâmicas.', icon: <Map className="w-4 h-4 text-emerald-600" /> }
     ];
 
+    // Function to handle rawText change with history
+    const updateRawText = (newText: string) => {
+        setHistory(prev => {
+            const last = prev[prev.length - 1];
+            if (last === rawText) return prev;
+            const newHistory = [...prev, rawText];
+            return newHistory.slice(-MAX_HISTORY);
+        });
+        setRawText(newText);
+    };
+
+    // Undo function
+    const handleUndo = useCallback(() => {
+        if (history.length === 0) return;
+        const previous = history[history.length - 1];
+        setHistory(prev => prev.slice(0, -1));
+        setRawText(previous);
+    }, [history]);
+
+    // Keyboard Shortcuts (Ctrl+Z)
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+                e.preventDefault();
+                handleUndo();
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [handleUndo]);
+
     const handleGenerate = async () => {
         setIsGenerating(true);
         setError("");
@@ -75,13 +115,147 @@ const SitemapBuilder = () => {
                 nodes: response.data.nodes,
                 edges: response.data.edges
             });
-            
+
         } catch (err: any) {
             console.error(err);
             setError(err.response?.data?.detail || "Ocorreu um erro ao gerar o mapa.");
         } finally {
             setIsGenerating(false);
         }
+    };
+
+    const downloadData = (format: 'txt' | 'json') => {
+        const content = format === 'json' ? JSON.stringify(graphData, null, 2) : rawText;
+        const blob = new Blob([content], { type: format === 'json' ? 'application/json' : 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `sitemap.${format}`;
+        link.click();
+        URL.revokeObjectURL(url);
+    };
+
+    const downloadImage = async () => {
+        if (!sitemapRef.current || !rendererRef.current) return;
+        try {
+            const bounds = rendererRef.current.getBounds();
+            const nodes = rendererRef.current.getNodes();
+            const edges = rendererRef.current.getEdges();
+
+            if (!bounds || nodes.length === 0) return;
+
+            const padding = 60; // Mais respiro nas bordas
+            const width = bounds.width + padding * 2;
+            const height = bounds.height + padding * 2;
+
+            // Super-Sampling: pixelRatio 2 ou 3 é o ideal para equilíbrio entre peso e nitidez
+            const dataUrl = await toPng(sitemapRef.current, {
+                backgroundColor: '#0f172a',
+                quality: 1,
+                pixelRatio: 2.5,
+                width: width,
+                height: height,
+                style: {
+                    width: `${width}px`,
+                    height: `${height}px`,
+                    transform: `translate(${-bounds.x + padding}px, ${-bounds.y + padding}px)`,
+                },
+                filter: (node: any) => {
+                    const exclusionClasses = [
+                        'react-flow__controls',
+                        'react-flow__panel',
+                        'react-flow__background',
+                        'react-flow__attribution'
+                    ];
+                    if (node.classList && exclusionClasses.some(cls => node.classList.contains(cls))) {
+                        return false;
+                    }
+                    return true;
+                }
+            });
+
+            const link = document.createElement('a');
+            link.download = 'sitemap-hd.png';
+            link.href = dataUrl;
+            link.click();
+        } catch (err) {
+            console.error('Erro ao gerar imagem:', err);
+            setError("Erro ao exportar imagem. Tente reduzir o tamanho do mapa ou fechar outras abas.");
+        }
+    };
+
+    const downloadHTML = () => {
+        if (!rendererRef.current) return;
+
+        // PEGANDO OS DADOS JÁ LAYOUTADOS (COM X E Y)
+        const layoutedNodes = rendererRef.current.getNodes();
+        const layoutedEdges = rendererRef.current.getEdges();
+
+        const htmlTemplate = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Sitemap Interativo - Export</title>
+    <style>
+        body, html, #app { margin: 0; padding: 0; width: 100vw; height: 100vh; background: #0f172a; overflow: hidden; font-family: 'Inter', sans-serif; color: white; }
+        .loading { display: flex; align-items: center; justify-content: center; height: 100%; font-size: 1.2rem; font-weight: bold; background: #0f172a; }
+        /* Estilos básicos para os nós no export */
+        .react-flow__node-custom { padding: 10px 15px; border-radius: 12px; font-size: 12px; font-weight: bold; border: 1px solid rgba(255,255,255,0.1); background: rgba(30, 41, 59, 0.8); color: white; min-width: 150px; text-align: center; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="app"><div class="loading">Carregando Mapa Interativo...</div></div>
+    <script type="importmap">
+    {
+        "imports": {
+            "react": "https://esm.sh/react@18",
+            "react-dom/client": "https://esm.sh/react-dom@18/client",
+            "@xyflow/react": "https://esm.sh/@xyflow/react@12"
+        }
+    }
+    </script>
+    <link rel="stylesheet" href="https://esm.sh/@xyflow/react@12/dist/style.css">
+    <script type="module">
+        import React from 'react';
+        import { createRoot } from 'react-dom/client';
+        import { ReactFlow, Background, Controls } from '@xyflow/react';
+
+        const nodes = ${JSON.stringify(layoutedNodes)};
+        const edges = ${JSON.stringify(layoutedEdges)};
+
+        function App() {
+            return React.createElement(
+                'div', 
+                { style: { width: '100%', height: '100%' } },
+                React.createElement(ReactFlow, {
+                    nodes: nodes,
+                    edges: edges,
+                    fitView: true,
+                    minZoom: 0.1,
+                    proOptions: { hideAttribution: true }
+                }, 
+                    React.createElement(Background, { color: "#334155", gap: 24, size: 1 }),
+                    React.createElement(Controls)
+                )
+            );
+        }
+
+        const container = document.getElementById('app');
+        const root = createRoot(container);
+        root.render(React.createElement(App));
+    </script>
+</body>
+</html>`;
+
+        const blob = new Blob([htmlTemplate], { type: 'text/html' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'sitemap-interativo.html';
+        link.click();
+        URL.revokeObjectURL(url);
     };
 
     return (
@@ -97,18 +271,18 @@ const SitemapBuilder = () => {
             <div className="flex gap-6 flex-1 min-h-0">
                 {/* Painel Esquerdo: Controles & Input */}
                 <div className="w-[380px] h-full flex flex-col gap-6 bg-theme-card/50 p-6 rounded-2xl border border-theme-border flex-shrink-0 backdrop-blur-sm shadow-xl overflow-y-auto custom-scrollbar">
-                    
+
                     {/* Seção Colapsável: Mind Map */}
                     <div className="flex flex-col gap-6 transition-all">
-                        <button 
+                        <button
                             onClick={() => {
                                 setIsMindMapSectionOpen(!isMindMapSectionOpen);
                                 if (!isMindMapSectionOpen) {
                                     setIsRoadmapSectionOpen(false);
                                     // Se o texto for o de Roadmap, volta para o de Mind Map ao reabrir
-                                    const roadmapStarts = ["Projeto Estratégico", "Soft. de Mensagens", "Planejamento Estratégico", "Roadmap de Software"];
-                                    if (roadmapStarts.some(s => rawText.startsWith(s))) {
-                                        setRawText("Holding Global S.A.\n  Divisão de Tecnologia\n    Engenharia de Software\n      Sistemas Web\n      Mobile Apps\n    Arquitetura Cloud\n      Infraestrutura\n      Segurança Cibernética\n  Divisão Comercial\n    Marketing Digital\n      Growth Hacking\n      Social Media\n    Vendas B2B\n      Key Accounts\n      Parcerias Estratégicas");
+                                    const roadmapKeywords = ["Fase", "Roadmap", "Sprint", "Sprint 1", "Marcos"];
+                                    if (roadmapKeywords.some(s => rawText.includes(s))) {
+                                        setRawText("1- EMPRESA (TÍTULO)\n1.1- Nossos Serviços\n1.1.1- Consultoria Estratégica\n1.1.2- Desenvolvimento de Sistemas\n1.2- Soluções em Nuvem\n2- CASES DE SUCESSO\n2.1- Projeto Alpha\n2.2- Projeto Beta\n3- SOBRE NÓS\n4- CONTATO");
                                         setTemplateId('mindmap');
                                     }
                                 }
@@ -134,14 +308,14 @@ const SitemapBuilder = () => {
                                         Orientação do Mapa
                                     </label>
                                     <div className="flex bg-theme-body p-1 rounded-xl border border-theme-border/50">
-                                        <button 
-                                            onClick={() => setLayoutDirection('vertical')} 
+                                        <button
+                                            onClick={() => setLayoutDirection('vertical')}
                                             className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold uppercase transition-all ${layoutDirection === 'vertical' ? 'bg-theme-primary text-white shadow-md' : 'text-theme-muted hover:text-theme-title hover:bg-theme-sidebar/50'}`}
                                         >
                                             <LayoutGrid className="w-4 h-4" /> Vertical
                                         </button>
-                                        <button 
-                                            onClick={() => setLayoutDirection('horizontal')} 
+                                        <button
+                                            onClick={() => setLayoutDirection('horizontal')}
                                             className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold uppercase transition-all ${layoutDirection === 'horizontal' ? 'bg-theme-primary text-white shadow-md' : 'text-theme-muted hover:text-theme-title hover:bg-theme-sidebar/50'}`}
                                         >
                                             <ListTree className="w-4 h-4" /> Horizontal
@@ -155,14 +329,14 @@ const SitemapBuilder = () => {
                                         Modo de Cor
                                     </label>
                                     <div className="flex bg-theme-body p-1 rounded-xl border border-theme-border/50">
-                                        <button 
-                                            onClick={() => setColorMode('mono')} 
+                                        <button
+                                            onClick={() => setColorMode('mono')}
                                             className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold uppercase transition-all ${colorMode === 'mono' ? 'bg-theme-primary text-white shadow-md' : 'text-theme-muted hover:text-theme-title hover:bg-theme-sidebar/50'}`}
                                         >
                                             <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: nodeColor }} /> Mono
                                         </button>
-                                        <button 
-                                            onClick={() => setColorMode('multi')} 
+                                        <button
+                                            onClick={() => setColorMode('multi')}
                                             className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold uppercase transition-all ${colorMode === 'multi' ? 'bg-theme-primary text-white shadow-md' : 'text-theme-muted hover:text-theme-title hover:bg-theme-sidebar/50'}`}
                                         >
                                             <div className="flex -space-x-1">
@@ -175,6 +349,27 @@ const SitemapBuilder = () => {
                                     </div>
                                 </div>
 
+                                {/* Espaçamento */}
+                                <div>
+                                    <label className="block text-xs font-bold text-theme-title uppercase tracking-wider mb-3">
+                                        Espaçamento
+                                    </label>
+                                    <div className="flex bg-theme-body p-1 rounded-xl border border-theme-border/50">
+                                        {['pp', 'p', 'm', 'g', 'gg'].map((s) => (
+                                            <button
+                                                key={s}
+                                                onClick={() => setSpacing(s)}
+                                                className={`flex-1 py-1.5 rounded-lg text-xs font-bold uppercase transition-all ${spacing === s
+                                                        ? 'bg-theme-primary text-white shadow-md'
+                                                        : 'text-theme-muted hover:text-theme-title hover:bg-theme-sidebar/50'
+                                                    }`}
+                                            >
+                                                {s}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
                                 {/* Cor das Linhas */}
                                 <div>
                                     <label className="text-[10px] font-black uppercase tracking-widest text-theme-muted mb-2 block flex items-center gap-2">
@@ -183,21 +378,19 @@ const SitemapBuilder = () => {
                                     <div className="flex bg-theme-body p-1 rounded-xl border border-theme-border/50">
                                         <button
                                             onClick={() => setEdgeColorMode('colored')}
-                                            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold uppercase transition-all ${
-                                                edgeColorMode === 'colored' 
-                                                ? 'bg-theme-primary text-white shadow-md' 
-                                                : 'text-theme-muted hover:text-theme-title hover:bg-theme-sidebar/50'
-                                            }`}
+                                            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold uppercase transition-all ${edgeColorMode === 'colored'
+                                                    ? 'bg-theme-primary text-white shadow-md'
+                                                    : 'text-theme-muted hover:text-theme-title hover:bg-theme-sidebar/50'
+                                                }`}
                                         >
                                             <Palette className="w-3 h-3" /> Colorido
                                         </button>
                                         <button
                                             onClick={() => setEdgeColorMode('bw')}
-                                            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold uppercase transition-all ${
-                                                edgeColorMode === 'bw' 
-                                                ? 'bg-theme-primary text-white shadow-md' 
-                                                : 'text-theme-muted hover:text-theme-title hover:bg-theme-sidebar/50'
-                                            }`}
+                                            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold uppercase transition-all ${edgeColorMode === 'bw'
+                                                    ? 'bg-theme-primary text-white shadow-md'
+                                                    : 'text-theme-muted hover:text-theme-title hover:bg-theme-sidebar/50'
+                                                }`}
                                         >
                                             <div className="w-3 h-3 border-2 border-theme-muted rounded-full" /> P&B
                                         </button>
@@ -214,11 +407,10 @@ const SitemapBuilder = () => {
                                             <button
                                                 key={t.id}
                                                 onClick={() => setTemplateId(t.id)}
-                                                className={`flex items-start gap-4 p-4 rounded-xl border transition-all text-left ${
-                                                    templateId === t.id 
-                                                    ? 'bg-theme-primary/20 border-theme-primary text-theme-primary shadow-md scale-[1.02]' 
-                                                    : 'bg-transparent border-theme-border text-theme-muted hover:border-theme-primary/50 hover:bg-theme-card'
-                                                }`}
+                                                className={`flex items-start gap-4 p-4 rounded-xl border transition-all text-left ${templateId === t.id
+                                                        ? 'bg-theme-primary/20 border-theme-primary text-theme-primary shadow-md scale-[1.02]'
+                                                        : 'bg-transparent border-theme-border text-theme-muted hover:border-theme-primary/50 hover:bg-theme-card'
+                                                    }`}
                                             >
                                                 <div className={`p-2.5 rounded-lg mt-0.5 ${templateId === t.id ? 'bg-theme-primary text-white shadow-lg' : 'bg-theme-body border border-theme-border'}`}>
                                                     {t.icon}
@@ -241,9 +433,9 @@ const SitemapBuilder = () => {
                                     </label>
                                     <div className="grid grid-cols-7 gap-2">
                                         {[
-                                            '#10b981', '#3b82f6', '#2563eb', '#6366f1', 
-                                            '#8b5cf6', '#a855f7', '#d946ef', '#f43f5e', 
-                                            '#ef4444', '#f97316', '#f59e0b', '#eab308', 
+                                            '#10b981', '#3b82f6', '#2563eb', '#6366f1',
+                                            '#8b5cf6', '#a855f7', '#d946ef', '#f43f5e',
+                                            '#ef4444', '#f97316', '#f59e0b', '#eab308',
                                             '#84cc16', '#14b8a6'
                                         ].map((color, i) => (
                                             <button
@@ -263,14 +455,14 @@ const SitemapBuilder = () => {
 
                     {/* Seção Colapsável: Roadmap */}
                     <div className="flex flex-col gap-6 transition-all">
-                        <button 
+                        <button
                             onClick={() => {
                                 setIsRoadmapSectionOpen(!isRoadmapSectionOpen);
                                 if (!isRoadmapSectionOpen) {
                                     setIsMindMapSectionOpen(false);
                                     // Se o texto for o padrão inicial ou estiver vazio, sugere o exemplo de Roadmap
-                                    if (rawText.startsWith("Holding Global") || rawText.trim() === "") {
-                                        setRawText("Roadmap de Desenvolvimento 2026\n  Fase de Planejamento {T1 2026} | Definição de escopo e arquitetura\n    Workshop UI/UX [Concluído]\n      Criação de Personas\n      Wireframes de Baixa Fidelidade\n    Especificação Técnica [Em Progresso] (40%)\n      Definição do Stack\n  Fase de Execução {T2 2026} | Desenvolvimento das features core\n    MVP do Backend [Não Iniciado]\n    Frontend Web [Não Iniciado]\n  Fase de Lançamento {T4 2026} | Testes e Go-to-market\n    Beta Fechado [Não Iniciado]\n    Campanha de Marketing [Não Iniciado]");
+                                    if (rawText.includes("EMPRESA") || rawText.trim() === "") {
+                                        setRawText("Roadmap de Expansão de Mercado 2026\n  Fase 1: Pesquisa e Planejamento {T1} | Análise de concorrência e público\n    Estudo de Viabilidade Econômica [Concluído]\n    Pesquisa de UX e Recomendações [Em Progresso]\n  Fase 2: Infraestrutura e Tecnologia {T2} | Setup de servidores e APIs\n    Deploy do Core do Sistema [Não Iniciado]\n    Integração com Gateway de Pagamento [Não Iniciado]\n  Fase 3: Lançamento e Marketing {Q3} | Campanhas de aquisição\n    Campanha de Tráfego Pago [Não Iniciado]\n    Evento de Lançamento Digital [Não Iniciado]");
                                         setTemplateId('timeline');
                                     }
                                 }
@@ -296,14 +488,14 @@ const SitemapBuilder = () => {
                                         Orientação do Mapa
                                     </label>
                                     <div className="flex bg-theme-body p-1 rounded-xl border border-theme-border/50">
-                                        <button 
-                                            onClick={() => setLayoutDirection('vertical')} 
+                                        <button
+                                            onClick={() => setLayoutDirection('vertical')}
                                             className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold uppercase transition-all ${layoutDirection === 'vertical' ? 'bg-emerald-500 text-white shadow-md' : 'text-theme-muted hover:text-theme-title hover:bg-theme-sidebar/50'}`}
                                         >
                                             <LayoutGrid className="w-4 h-4" /> Vertical
                                         </button>
-                                        <button 
-                                            onClick={() => setLayoutDirection('horizontal')} 
+                                        <button
+                                            onClick={() => setLayoutDirection('horizontal')}
                                             className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold uppercase transition-all ${layoutDirection === 'horizontal' ? 'bg-emerald-500 text-white shadow-md' : 'text-theme-muted hover:text-theme-title hover:bg-theme-sidebar/50'}`}
                                         >
                                             <ListTree className="w-4 h-4" /> Horizontal
@@ -317,14 +509,14 @@ const SitemapBuilder = () => {
                                         Modo de Cor
                                     </label>
                                     <div className="flex bg-theme-body p-1 rounded-xl border border-theme-border/50">
-                                        <button 
-                                            onClick={() => setColorMode('mono')} 
+                                        <button
+                                            onClick={() => setColorMode('mono')}
                                             className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold uppercase transition-all ${colorMode === 'mono' ? 'bg-emerald-500 text-white shadow-md' : 'text-theme-muted hover:text-theme-title hover:bg-theme-sidebar/50'}`}
                                         >
                                             <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: nodeColor }} /> Mono
                                         </button>
-                                        <button 
-                                            onClick={() => setColorMode('multi')} 
+                                        <button
+                                            onClick={() => setColorMode('multi')}
                                             className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold uppercase transition-all ${colorMode === 'multi' ? 'bg-emerald-500 text-white shadow-md' : 'text-theme-muted hover:text-theme-title hover:bg-theme-sidebar/50'}`}
                                         >
                                             <div className="flex -space-x-1">
@@ -345,21 +537,19 @@ const SitemapBuilder = () => {
                                     <div className="flex bg-theme-body p-1 rounded-xl border border-theme-border/50">
                                         <button
                                             onClick={() => setEdgeColorMode('colored')}
-                                            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold uppercase transition-all ${
-                                                edgeColorMode === 'colored' 
-                                                ? 'bg-emerald-500 text-white shadow-md' 
-                                                : 'text-theme-muted hover:text-theme-title hover:bg-theme-sidebar/50'
-                                            }`}
+                                            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold uppercase transition-all ${edgeColorMode === 'colored'
+                                                    ? 'bg-emerald-500 text-white shadow-md'
+                                                    : 'text-theme-muted hover:text-theme-title hover:bg-theme-sidebar/50'
+                                                }`}
                                         >
                                             <Palette className="w-3 h-3" /> Colorido
                                         </button>
                                         <button
                                             onClick={() => setEdgeColorMode('bw')}
-                                            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold uppercase transition-all ${
-                                                edgeColorMode === 'bw' 
-                                                ? 'bg-emerald-500 text-white shadow-md' 
-                                                : 'text-theme-muted hover:text-theme-title hover:bg-theme-sidebar/50'
-                                            }`}
+                                            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold uppercase transition-all ${edgeColorMode === 'bw'
+                                                    ? 'bg-emerald-500 text-white shadow-md'
+                                                    : 'text-theme-muted hover:text-theme-title hover:bg-theme-sidebar/50'
+                                                }`}
                                         >
                                             <div className="w-3 h-3 border-2 border-theme-muted rounded-full" /> P&B
                                         </button>
@@ -373,9 +563,9 @@ const SitemapBuilder = () => {
                                     </label>
                                     <div className="grid grid-cols-7 gap-2">
                                         {[
-                                            '#10b981', '#3b82f6', '#2563eb', '#6366f1', 
-                                            '#8b5cf6', '#a855f7', '#d946ef', '#f43f5e', 
-                                            '#ef4444', '#f97316', '#f59e0b', '#eab308', 
+                                            '#10b981', '#3b82f6', '#2563eb', '#6366f1',
+                                            '#8b5cf6', '#a855f7', '#d946ef', '#f43f5e',
+                                            '#ef4444', '#f97316', '#f59e0b', '#eab308',
                                             '#84cc16', '#14b8a6'
                                         ].map((color, i) => (
                                             <button
@@ -398,11 +588,10 @@ const SitemapBuilder = () => {
                                             <button
                                                 key={t.id}
                                                 onClick={() => setTemplateId(t.id)}
-                                                className={`flex items-start gap-4 p-4 rounded-xl border transition-all text-left ${
-                                                    templateId === t.id 
-                                                    ? 'bg-emerald-500/20 border-emerald-500 text-emerald-500 shadow-md scale-[1.02]' 
-                                                    : 'bg-transparent border-theme-border text-theme-muted hover:border-emerald-500/50 hover:bg-theme-card'
-                                                }`}
+                                                className={`flex items-start gap-4 p-4 rounded-xl border transition-all text-left ${templateId === t.id
+                                                        ? 'bg-emerald-500/20 border-emerald-500 text-emerald-500 shadow-md scale-[1.02]'
+                                                        : 'bg-transparent border-theme-border text-theme-muted hover:border-emerald-500/50 hover:bg-theme-card'
+                                                    }`}
                                             >
                                                 <div className={`p-2.5 rounded-lg mt-0.5 ${templateId === t.id ? 'bg-emerald-500 text-white shadow-lg' : 'bg-theme-body border border-theme-border'}`}>
                                                     {t.icon}
@@ -433,6 +622,16 @@ const SitemapBuilder = () => {
                             </label>
                             <div className="flex gap-2">
                                 <button
+                                    onClick={() => {
+                                        setRawText("ESTRUTURA ORGANIZACIONAL\n1- DIRETORIA EXECUTIVA\n1.1- VP de Operações\n1.1.1- Gerente de Logística\n1.2- VP de Tecnologia\n1.2.1- Gerente de Engenharia\n2- DEPARTAMENTO COMERCIAL\n2.1- Vendas Diretas\n2.2- Key Accounts\n3- RECURSOS HUMANOS");
+                                        handleGenerate();
+                                    }}
+                                    className="px-2 py-1 text-[9px] font-bold uppercase tracking-tight text-theme-muted hover:text-theme-primary hover:bg-theme-primary/10 rounded-lg transition-all border border-theme-border/50 hover:border-theme-primary/30"
+                                    title="Exemplo: Estrutura Organizacional"
+                                >
+                                    Exemplo 2
+                                </button>
+                                <button
                                     onClick={() => setIsInputExpanded(!isInputExpanded)}
                                     className="p-1.5 text-theme-muted hover:text-theme-primary hover:bg-theme-primary/10 rounded-md transition-all border border-transparent hover:border-theme-primary/20"
                                     title={isInputExpanded ? "Recolher Input" : "Expandir Input"}
@@ -448,13 +647,63 @@ const SitemapBuilder = () => {
                                 </button>
                             </div>
                         </div>
-                        <textarea 
+                        <textarea
                             className="flex-1 w-full p-4 bg-black/20 border border-theme-border rounded-xl text-theme-main font-mono text-sm leading-relaxed focus:outline-none focus:border-theme-primary focus:ring-1 focus:ring-theme-primary resize-y custom-scrollbar shadow-inner"
                             value={rawText}
-                            onChange={(e) => setRawText(e.target.value)}
-                            placeholder="Home\n  Página 1\n    Sub-página\nContato"
+                            onChange={(e) => updateRawText(e.target.value)}
+                            placeholder="1- Home\n1.1- Página 1\n1.1.1- Sub-página\n2- Contato"
                             spellCheck={false}
                         />
+                    </div>
+
+                    {/* Download e Ferramentas */}
+                    <div className="bg-theme-card/30 p-4 rounded-xl border border-theme-border/50">
+                        <label className="block text-[10px] font-black text-theme-title uppercase tracking-widest opacity-70 mb-3 flex items-center gap-2">
+                            <Download className="w-3 h-3" /> Ferramentas e Exportação
+                        </label>
+                        <div className="grid grid-cols-2 gap-2">
+                            <button
+                                onClick={downloadImage}
+                                className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-theme-body border border-theme-border/50 text-theme-title text-[10px] font-bold uppercase hover:bg-theme-sidebar/50 transition-all hover:shadow-md group"
+                                title="Exportar como Imagem PNG"
+                            >
+                                <ImageIcon className="w-3.5 h-3.5 text-blue-500 group-hover:scale-110 transition-transform" />
+                                PNG
+                            </button>
+                            <button
+                                onClick={downloadHTML}
+                                className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-theme-body border border-theme-border/50 text-theme-title text-[10px] font-bold uppercase hover:bg-theme-sidebar/50 transition-all hover:shadow-md group"
+                                title="Exportar como HTML Interativo"
+                            >
+                                <Layout className="w-3.5 h-3.5 text-purple-500 group-hover:scale-110 transition-transform" />
+                                HTML
+                            </button>
+                            <button
+                                onClick={() => downloadData('txt')}
+                                className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-theme-body border border-theme-border/50 text-theme-title text-[10px] font-bold uppercase hover:bg-theme-sidebar/50 transition-all hover:shadow-md group"
+                                title="Baixar Texto Bruto"
+                            >
+                                <FileText className="w-3.5 h-3.5 text-emerald-500 group-hover:scale-110 transition-transform" />
+                                TXT
+                            </button>
+                            <button
+                                onClick={() => downloadData('json')}
+                                className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-theme-body border border-theme-border/50 text-theme-title text-[10px] font-bold uppercase hover:bg-theme-sidebar/50 transition-all hover:shadow-md group"
+                                title="Baixar Dados Estruturados (JSON)"
+                            >
+                                <FileJson className="w-3.5 h-3.5 text-amber-500 group-hover:scale-110 transition-transform" />
+                                JSON
+                            </button>
+                            <button
+                                onClick={handleUndo}
+                                disabled={history.length === 0}
+                                className={`flex items-center justify-center gap-2 py-2.5 rounded-xl bg-theme-body border border-theme-border/50 text-[10px] font-bold uppercase transition-all hover:shadow-md group ${history.length === 0 ? 'opacity-30 cursor-not-allowed' : 'text-theme-title hover:bg-theme-sidebar/50'}`}
+                                title="Desfazer última alteração (Ctrl+Z)"
+                            >
+                                <History className="w-3.5 h-3.5 text-purple-500 group-hover:scale-110 transition-transform" />
+                                Undo
+                            </button>
+                        </div>
                     </div>
 
                     {error && (
@@ -463,7 +712,7 @@ const SitemapBuilder = () => {
                         </div>
                     )}
 
-                    <button 
+                    <button
                         onClick={handleGenerate}
                         disabled={isGenerating}
                         className="flex items-center justify-center gap-2 w-full py-4 bg-theme-primary text-white font-bold rounded-xl shadow-[0_4px_14px_0_rgba(var(--color-primary),0.39)] hover:bg-theme-primary/90 hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:pointer-events-none"
@@ -474,8 +723,8 @@ const SitemapBuilder = () => {
                 </div>
 
                 {/* Painel Direito: Canvas do Grafo (Sitemap Render) */}
-                <div className="flex-1 rounded-2xl border border-theme-border relative overflow-hidden shadow-2xl bg-theme-body/30">
-                    
+                <div className="flex-1 rounded-2xl border border-theme-border relative overflow-hidden shadow-2xl bg-theme-body/30" ref={sitemapRef}>
+
                     {graphData.nodes.length === 0 ? (
                         /* Estado Vazio */
                         <div className="absolute inset-0 flex items-center justify-center flex-col z-10">
@@ -487,23 +736,25 @@ const SitemapBuilder = () => {
                         </div>
                     ) : (
                         /* Canvas do React Flow ATIVO */
-                        <SitemapRenderer 
-                            rawNodes={graphData.nodes} 
-                            rawEdges={graphData.edges} 
+                        <SitemapRenderer
+                            ref={rendererRef}
+                            rawNodes={graphData.nodes}
+                            rawEdges={graphData.edges}
                             templateId={templateId}
                             layoutDirection={layoutDirection}
                             nodeColor={nodeColor}
                             colorMode={colorMode}
                             edgeColorMode={edgeColorMode}
+                            spacing={spacing}
                         />
                     )}
                 </div>
             </div>
 
             {/* Modal de Ajuda (Exemplos de Indentação e JSON) */}
-            <CustomHelpModal 
-                isOpen={isHelpModalOpen} 
-                onClose={() => setIsHelpModalOpen(false)} 
+            <CustomHelpModal
+                isOpen={isHelpModalOpen}
+                onClose={() => setIsHelpModalOpen(false)}
             />
         </div>
     );

@@ -1,10 +1,13 @@
-import React, { useCallback, useEffect, useState, useMemo } from 'react';
+import React, { useCallback, useEffect, useState, useMemo, forwardRef, useImperativeHandle } from 'react';
 import {
     ReactFlow,
     Controls,
     Background,
     useNodesState,
     useEdgesState,
+    useReactFlow,
+    ReactFlowProvider,
+    getNodesBounds,
     Node,
     Edge,
     Position
@@ -32,17 +35,27 @@ const nodeHeight = 60;
 /**
  * Função utilitária para aplicar o Layout Organizacional
  */
-const getLayoutedElements = (visibleNodes: GraphNode[], visibleEdges: GraphEdge[], direction = 'TB', templateId?: string) => {
+const getLayoutedElements = (visibleNodes: GraphNode[], visibleEdges: GraphEdge[], direction = 'TB', templateId?: string, spacing: string = 'm') => {
     const dagreGraph = new dagre.graphlib.Graph();
     dagreGraph.setDefaultEdgeLabel(() => ({}));
     
     const isHorizontal = direction === 'LR';
     const isRoadmap = ['timeline', 'milestone', 'gantt', 'wave', 'isometric', 'minimal', 'blueprint', 'glass', 'winding', 'zigzag'].includes(templateId || '');
 
+    // Mapeamento de escalas de espaçamento
+    const spacingMap: Record<string, { node: number, rank: number }> = {
+        pp: { node: 60, rank: 90 },
+        p: { node: 90, rank: 135 },
+        m: { node: 120, rank: 180 },
+        g: { node: 180, rank: 270 },
+        gg: { node: 240, rank: 360 }
+    };
+    const scale = spacingMap[spacing] || spacingMap.m;
+
     // Ajustes específicos para Roadmap: Maior separação entre ranks (fases) e muito maior entre nós do mesmo rank (para alternância)
     const isHighExpansion = ['wave', 'timeline', 'isometric', 'glass', 'winding', 'zigzag'].includes(templateId || '');
-    const nodesep = isHighExpansion ? 350 : (isRoadmap ? 180 : 60); 
-    const ranksep = templateId === 'wave' ? 400 : (isRoadmap ? 220 : 80);
+    const nodesep = isHighExpansion ? 350 : (isRoadmap ? 180 : scale.node); 
+    const ranksep = templateId === 'wave' ? 400 : (isRoadmap ? 220 : scale.rank);
 
     dagreGraph.setGraph({ 
         rankdir: direction, 
@@ -61,7 +74,7 @@ const getLayoutedElements = (visibleNodes: GraphNode[], visibleEdges: GraphEdge[
 
     dagre.layout(dagreGraph);
 
-    const layoutedNodes = visibleNodes.map((node, idx) => {
+    const layoutedNodes = visibleNodes.map((node) => {
         const nodeWithPosition = dagreGraph.node(node.id);
         let x = nodeWithPosition.x - nodeWidth / 2;
         let y = nodeWithPosition.y - nodeHeight / 2;
@@ -84,17 +97,30 @@ const getLayoutedElements = (visibleNodes: GraphNode[], visibleEdges: GraphEdge[
 };
 
 
-const SitemapRenderer = ({ rawNodes, rawEdges, templateId, layoutDirection, nodeColor, colorMode = 'mono', edgeColorMode = 'colored' }: { 
+const SitemapRendererContent = forwardRef(({ rawNodes, rawEdges, templateId, layoutDirection, nodeColor, colorMode = 'mono', edgeColorMode = 'colored', spacing = 'm' }: { 
     rawNodes: any[], 
     rawEdges: any[], 
     templateId: string, 
     layoutDirection: string,
     nodeColor?: string,
     colorMode?: 'mono' | 'multi',
-    edgeColorMode?: 'colored' | 'bw'
-}) => {
+    edgeColorMode?: 'colored' | 'bw',
+    spacing?: string
+}, ref) => {
+    const { getNodes } = useReactFlow();
     const [nodes, setNodes, onNodesChange] = useNodesState<GraphNode>([]);
     const [edges, setEdges, onEdgesChange] = useEdgesState<GraphEdge>([]);
+
+    // Expõe a lógica de captura e dados para o Builder
+    useImperativeHandle(ref, () => ({
+        getBounds: () => {
+            const currentNodes = getNodes();
+            if (currentNodes.length === 0) return null;
+            return getNodesBounds(currentNodes);
+        },
+        getNodes: () => getNodes(),
+        getEdges: () => edges
+    }));
     
     // Estado de quais Nós estão colapsados/encolhidos. Guarda os IDs.
     const [collapsedNodes, setCollapsedNodes] = useState<Set<string>>(new Set());
@@ -326,13 +352,14 @@ const SitemapRenderer = ({ rawNodes, rawEdges, templateId, layoutDirection, node
             visibleNodes,
             visibleEdges,
             direction,
-            templateId
+            templateId,
+            spacing
         );
 
         setNodes(layoutedNodes);
         setEdges(layoutedEdges);
 
-    }, [rawNodes, rawEdges, templateId, layoutDirection, nodeColor, colorMode, collapsedNodes, getHiddenDescendants, handleToggleCollapse, setNodes, setEdges]);
+    }, [rawNodes, rawEdges, templateId, layoutDirection, nodeColor, colorMode, spacing, collapsedNodes, getHiddenDescendants, handleToggleCollapse, setNodes, setEdges]);
 
 
     // Para o React Flow não recriar os Types em todo Render (Performance)
@@ -359,6 +386,15 @@ const SitemapRenderer = ({ rawNodes, rawEdges, templateId, layoutDirection, node
             </ReactFlow>
         </div>
     );
-};
+});
+
+// Componente principal que provê o contexto do React Flow
+const SitemapRenderer = forwardRef((props: any, ref) => {
+    return (
+        <ReactFlowProvider>
+            <SitemapRendererContent {...props} ref={ref} />
+        </ReactFlowProvider>
+    );
+});
 
 export default SitemapRenderer;

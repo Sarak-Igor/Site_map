@@ -15,13 +15,13 @@ const CustomHelpModal = ({ isOpen, onClose }: CustomHelpModalProps) => {
         let filename = "";
 
         if (type === 'mindmap') {
-            content = "Estrutura Corporativa\n  Diretoria Tech\n    Engenharia\n      Sub-item 1\n      Sub-item 2\n  Diretoria Comercial\n    Marketing\n      Sub-item 3";
+            content = "1- Estrutura Corporativa\n1.1- Diretoria Tech\n1.1.1- Engenharia\n1.1.1.1- Sub-item 1\n1.1.1.2- Sub-item 2\n1.2- Diretoria Comercial\n1.2.1- Marketing\n1.2.1.1- Sub-item 3";
             filename = "template_mapa_mental.txt";
         } else if (type === 'roadmap') {
-            content = "Projeto Roadmap 2026\n  Fase 1: Planejamento [Status] {Timeline} (0%)\n    Tarefa A\n      Sub-tarefa A1\n    Tarefa B\n  Fase 2: Execução [Status] {Timeline} (0%)";
+            content = "1- Projeto Roadmap 2026\n1.1- Fase 1: Planejamento [Status] {Timeline} (0%)\n1.1.1- Tarefa A\n1.1.1.1- Sub-tarefa A1\n1.1.2- Tarefa B\n1.2- Fase 2: Execução [Status] {Timeline} (0%)";
             filename = "template_roadmap.txt";
         } else if (type === 'items') {
-            content = "Mapa de Componentes\n  Módulo Auth | Gerencia login e tokens\n    Frontend | React Components\n      Login Page | Interface de entrada\n    Backend | Node.js API\n      API Auth | Endpoint de validação";
+            content = "1- Mapa de Componentes\n1.1- Módulo Auth | Gerencia login e tokens\n1.1.1- Frontend | React Components\n1.1.1.1- Login Page | Interface de entrada\n1.1.2- Backend | Node.js API\n1.1.2.1- API Auth | Endpoint de validação";
             filename = "template_mapa_itens.txt";
         } else if (type === 'json') {
             content = JSON.stringify({
@@ -130,33 +130,33 @@ const CustomHelpModal = ({ isOpen, onClose }: CustomHelpModalProps) => {
                                 className="space-y-4"
                             >
                                 <p className="text-sm text-theme-main">
-                                    O motor identifica os níveis de profundidade (pai/filho) baseando-se nos <strong>espaços em branco (Indentação)</strong> inseridos antes de cada palavra.
+                                    O motor identifica os níveis de profundidade (pai/filho) baseando-se no <strong>prefixo numérico (Hierarquia)</strong> inserido antes de cada palavra, separados por ponto.
                                 </p>
                                 <div className="p-4 bg-theme-body rounded-xl border border-theme-border">
-                                    <h4 className="text-xs font-bold text-theme-primary mb-3">Exemplo Estrutura Corporativa (5 Camadas):</h4>
+                                    <h4 className="text-xs font-bold text-theme-primary mb-3">Exemplo Estrutura Corporativa (Níveis Numéricos):</h4>
                                     <pre className="text-sm font-mono text-theme-title bg-black/40 p-4 rounded-lg overflow-auto leading-relaxed border border-white/5 max-h-[400px] custom-scrollbar">
-{`Holding Internacional
-  Norte América (Regional)
-    Logística
-      Frota de Entrega
-        Veículos Elétricos (Nível 5)
-        Drones Autônomos
-      Gestão de Armazém
-    Desenvolvimento
-      Cloud Engineering
-      Produto UX
-  Europa & Ásia (Regional)
-    Customer Success
-    Vendas Enterprise
-      KAM Global
-      Inside Sales
-    Marketing Digital
-      SEO / SEM
-      Conteúdo Estratégico`}
+{`1- Holding Internacional
+1.1- Norte América (Regional)
+1.1.1- Logística
+1.1.1.1- Frota de Entrega
+1.1.1.1.1- Veículos Elétricos (Nível 5)
+1.1.1.1.2- Drones Autônomos
+1.1.1.2- Gestão de Armazém
+1.1.2- Desenvolvimento
+1.1.2.1- Cloud Engineering
+1.1.2.2- Produto UX
+1.2- Europa & Ásia (Regional)
+1.2.1- Customer Success
+1.2.2- Vendas Enterprise
+1.2.2.1- KAM Global
+1.2.2.2- Inside Sales
+1.2.3- Marketing Digital
+1.2.3.1- SEO / SEM
+1.2.3.2- Conteúdo Estratégico`}
                                     </pre>
                                 </div>
                                 <p className="text-xs text-theme-muted italic">
-                                    <strong>Dica:</strong> Use as teclas <kbd className="px-1.5 py-0.5 bg-theme-sidebar rounded font-mono text-white">Espaço</kbd> ou <kbd className="px-1.5 py-0.5 bg-theme-sidebar rounded font-mono text-white">Tab</kbd> para criar o recuo. Quanto mais recuado para a direita, mais profundo o nó ficará na árvore.
+                                    <strong>Dica:</strong> Use os números separados por ponto final seguidos de um traço <kbd className="px-1.5 py-0.5 bg-theme-sidebar rounded font-mono text-white">1.1.2-</kbd> para definir em qual nível de profundidade cada texto se encontra.
                                 </p>
                                 <button 
                                     onClick={() => downloadSkeleton('mindmap')}
@@ -177,17 +177,17 @@ const CustomHelpModal = ({ isOpen, onClose }: CustomHelpModalProps) => {
                                         🚀 Exemplo Soft. Timeline (Infográfico)
                                     </h4>
                                     <pre className="text-sm font-mono text-theme-title bg-black/40 p-4 rounded-lg overflow-auto leading-relaxed border border-white/5">
-{`Soft. de Mensagens Instantâneas
-  Ideação e Brainstorming {Jan 2019} (100%)
-    Pesquisa Competitiva
-    Entrevistas com Usuários
-  Planejamento e Design {Mar 2019} (45%)
-    UI/UX Prototipagem
-      Wireframes Mobile
-      Design System Pro
-  Estruturação e Código {Abr 2019} (10%)
-    API de Mensageria
-    Notificações Push`}
+{`1- Soft. de Mensagens Instantâneas
+1.1- Ideação e Brainstorming {Jan 2019} (100%)
+1.1.1- Pesquisa Competitiva
+1.1.2- Entrevistas com Usuários
+1.2- Planejamento e Design {Mar 2019} (45%)
+1.2.1- UI/UX Prototipagem
+1.2.1.1- Wireframes Mobile
+1.2.1.2- Design System Pro
+1.3- Estruturação e Código {Abr 2019} (10%)
+1.3.1- API de Mensageria
+1.3.2- Notificações Push`}
                                     </pre>
                                 </div>
 
@@ -196,16 +196,16 @@ const CustomHelpModal = ({ isOpen, onClose }: CustomHelpModalProps) => {
                                         📊 Exemplo Gantt Profissional (Projec Management)
                                     </h4>
                                     <pre className="text-sm font-mono text-theme-title bg-black/40 p-4 rounded-lg overflow-auto leading-relaxed border border-white/5">
-{`Planejamento Estratégico Netlinks
-  Fase de Planejamento [Atenção] {Jan - Fev}
-    Alocação de Recursos (100%) | Equipe técnica e budget
-    Planos de Trabalho (80%) | Cronograma detalhado
-  Fase de Testes [Em Progresso] {Maio - Jul}
-    Integração I (50%) | API e Middleware
-    Integração II (0%) | Frontend e Mobile
-  Desenvolvimento Core {Jun - Out}
-    Protótipo Beta (100%)
-    Build Experimental (20%)`}
+{`1- Planejamento Estratégico Netlinks
+1.1- Fase de Planejamento [Atenção] {Jan - Fev}
+1.1.1- Alocação de Recursos (100%) | Equipe técnica e budget
+1.1.2- Planos de Trabalho (80%) | Cronograma detalhado
+1.2- Fase de Testes [Em Progresso] {Maio - Jul}
+1.2.1- Integração I (50%) | API e Middleware
+1.2.2- Integração II (0%) | Frontend e Mobile
+1.3- Desenvolvimento Core {Jun - Out}
+1.3.1- Protótipo Beta (100%)
+1.3.2- Build Experimental (20%)`}
                                     </pre>
                                 </div>
 
@@ -250,15 +250,15 @@ const CustomHelpModal = ({ isOpen, onClose }: CustomHelpModalProps) => {
                                         Utilize o caractere pipe <code className="bg-theme-body px-1 font-bold">|</code> para separar o nome do item de sua descrição técnica.
                                     </p>
                                     <pre className="text-sm font-mono text-theme-title bg-black/40 p-4 rounded-lg overflow-auto leading-relaxed border border-white/5">
-{`Infraestrutura Cloud | Setup completo na AWS
-  Camada de Dados | Bancos RDS e S3
-    User Records | Tabelas de perfil
-      Auth Data | Credenciais e hash
-      User Meta | Preferências
-    Media Streaming | Bucket de arquivos
-  Módulo de Segurança | Firewall e 2FA
-    WAF Setup | Proteção contra DDoS
-    SSL/TLS | Certificados`}
+{`1- Infraestrutura Cloud | Setup completo na AWS
+1.1- Camada de Dados | Bancos RDS e S3
+1.1.1- User Records | Tabelas de perfil
+1.1.1.1- Auth Data | Credenciais e hash
+1.1.1.2- User Meta | Preferências
+1.1.2- Media Streaming | Bucket de arquivos
+1.2- Módulo de Segurança | Firewall e 2FA
+1.2.1- WAF Setup | Proteção contra DDoS
+1.2.2- SSL/TLS | Certificados`}
                                     </pre>
                                 </div>
 

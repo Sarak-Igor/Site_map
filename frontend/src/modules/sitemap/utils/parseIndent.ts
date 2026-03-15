@@ -27,10 +27,40 @@ export const parseIndentedText = (text: string) => {
         const line = lines[i];
         if (line.trim() === '') continue; // Pular linhas em branco
 
-        // Conta quantos espaços existem no começo da linha
-        const indentMatch = line.match(/^(\s*)/);
-        const indentLevel = indentMatch ? indentMatch[0].length : 0;
-        const label = line.trim();
+        const originalLineTrimmed = line.trim();
+
+        // Inicializamos variáveis de nível e label
+        let indentLevel = 0;
+        let label = originalLineTrimmed;
+
+        // Expressão Regular para capturar prefixo numérico como "1-", "1.1-", "2.1.1 -" 
+        // Opcionalmente com espaços ou pontuações variáveis limitando com traço ou espaço.
+        const prefixMatch = originalLineTrimmed.match(/^([\d.]+)\s*-\s*/);
+
+        // Se encontrou prefixo "1.1.2-", o nível é a quantidade de números identificados.
+        if (prefixMatch) {
+            // "1" = 1 parte (Nível 1). "1.1" = 2 partes (Nível 2).
+            const parts = prefixMatch[1].split('.').filter(p => p.length > 0);
+            
+            // O nível agora é exatamente a contagem de partes numéricas.
+            // Isso deixa o Nível 0 livre para o Título (Site Map).
+            indentLevel = parts.length;
+            
+            // Remove o prefixo do label visível
+            label = originalLineTrimmed.replace(prefixMatch[0], '').trim();
+        } else {
+            // Fallback para textos sem numeração (ex: "Site Map") -> Nível 0
+            // Ou lógica antiga de indentação se houver espaços
+            const indentMatch = line.match(/^(\s*)/);
+            if (indentMatch && indentMatch[0].length > 0) {
+                // Se houver espaços, calculamos nível baseado neles, mas somamos 1 
+                // para não colidir com a raiz se o usuário indentar manualmente.
+                indentLevel = Math.floor(indentMatch[0].length / 2) + 1;
+            } else {
+                indentLevel = 0; // Texto puro sem espaços no início = Raiz
+            }
+            label = line.trim();
+        }
 
         // Extração de Descrição (Mapa de Itens) via Pipe '|'
         const descriptionMatch = label.match(/\|(.*)$/);
