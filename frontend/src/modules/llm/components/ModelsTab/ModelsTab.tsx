@@ -225,11 +225,7 @@ export const ModelsTab = ({
                                         <div className="bg-emerald-500/15 text-emerald-500 text-[10px] font-black px-2.5 py-1 rounded-xl border border-emerald-500/20 flex items-center gap-1.5">
                                             <Zap className="w-3 h-3" /> GRÁTIS
                                         </div>
-                                    ) : (
-                                        <div className="bg-amber-500/15 text-amber-500 text-[10px] font-black px-2.5 py-1 rounded-xl border border-amber-500/20">
-                                            PAGO
-                                        </div>
-                                    )}
+                                    ) : null}
                                 </div>
 
                                 {model.available && (
