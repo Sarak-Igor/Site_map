@@ -75,6 +75,7 @@ export const ThemeToggle = () => {
 
 export const UserMenu = ({ user, onPasswordModal, onLogout }) => {
     const [isOpen, setIsOpen] = React.useState(false);
+    const userName = user?.email?.split('@')[0] || 'Usuário';
 
     return (
         <div className="relative">
@@ -82,6 +83,9 @@ export const UserMenu = ({ user, onPasswordModal, onLogout }) => {
                 onClick={() => setIsOpen(!isOpen)}
                 className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-theme-primary/5 transition-colors group"
             >
+                <span className="text-xs font-bold text-theme-muted group-hover:text-theme-primary transition-all hidden sm:block uppercase tracking-widest">
+                    {userName}
+                </span>
                 <div className="w-8 h-8 rounded-full bg-theme-body border border-theme-border flex items-center justify-center text-theme-muted group-hover:text-theme-primary transition-all">
                     <User className="w-4 h-4" />
                 </div>
@@ -101,12 +105,12 @@ export const UserMenu = ({ user, onPasswordModal, onLogout }) => {
                             <div className="p-1">
                                 <button onClick={() => { setIsOpen(false); onPasswordModal(); }} className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-theme-main hover:bg-theme-primary/10 rounded-lg transition-colors text-left">
                                     <KeyRound className="w-4 h-4 opacity-50" />
-                                    <span>Change Password</span>
+                                    <span>Alterar Senha</span>
                                 </button>
                                 <div className="h-px bg-theme-border my-1"></div>
                                 <button onClick={() => { setIsOpen(false); onLogout(); }} className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors text-left font-bold">
                                     <LogOut className="w-4 h-4" />
-                                    <span>Log Out</span>
+                                    <span>Sair do Sistema</span>
                                 </button>
                             </div>
                         </motion.div>

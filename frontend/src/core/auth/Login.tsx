@@ -16,11 +16,16 @@ import {
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
-function cn(...inputs) {
+function cn(...inputs: any[]) {
     return twMerge(clsx(inputs));
 }
 
-const Login = ({ branding }) => {
+interface Branding {
+    name: string;
+    logo?: string;
+}
+
+const Login: React.FC<{ branding: Branding }> = ({ branding }) => {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
@@ -31,10 +36,10 @@ const Login = ({ branding }) => {
     const navigate = useNavigate();
     const location = useLocation();
 
-    // Where to redirect after login
-    const from = location.state?.from?.pathname || "/";
+    // Redirecionamento após login
+    const from = (location.state as any)?.from?.pathname || "/";
 
-    const handleSubmit = async (e) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
         setIsPending(true);
@@ -44,7 +49,7 @@ const Login = ({ branding }) => {
         if (result.success) {
             navigate(from, { replace: true });
         } else {
-            setError(result.error);
+            setError(result.error || 'Erro ao realizar login');
             setIsPending(false);
         }
     };
@@ -52,16 +57,16 @@ const Login = ({ branding }) => {
     return (
         <div className="min-h-screen w-full flex bg-[#020617] text-slate-200 selection:bg-blue-500/30 font-sans overflow-hidden">
 
-            {/* Left Side - Hero Section */}
+            {/* Lado Esquerdo - Seção Hero */}
             <div className="hidden lg:flex lg:w-3/5 relative overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950/20 items-center justify-center p-12">
 
-                {/* Animated Decorative Background */}
+                {/* Fundo Decorativo Animado */}
                 <div className="absolute inset-0 opacity-20">
                     <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-500/20 rounded-full blur-[120px] animate-pulse"></div>
                     <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-emerald-500/10 rounded-full blur-[120px] animate-pulse [animation-delay:2s]"></div>
                 </div>
 
-                {/* Visual Grid */}
+                {/* Grade Visual */}
                 <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-overlay"></div>
                 <div className="absolute inset-0" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, rgba(255,255,255,0.05) 1px, transparent 0)', backgroundSize: '40px 40px' }}></div>
 
@@ -85,17 +90,10 @@ const Login = ({ branding }) => {
                         transition={{ delay: 0.2, duration: 0.8 }}
                         className="text-6xl font-black tracking-tighter mb-6 bg-gradient-to-r from-blue-400 via-white to-blue-400 bg-[length:200%_auto] animate-gradient-text bg-clip-text text-transparent uppercase"
                     >
-                        {branding?.name} <span className="text-slate-500 opacity-50">{branding?.version}</span>
+                        {branding?.name}
                     </motion.h1>
 
-                    <motion.p
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.3, duration: 0.8 }}
-                        className="text-lg text-slate-400 font-medium leading-relaxed max-w-md"
-                    >
-                        {branding?.subtitle}
-                    </motion.p>
+
 
                     <motion.div
                         initial={{ opacity: 0 }}
@@ -115,7 +113,7 @@ const Login = ({ branding }) => {
                 </div>
             </div>
 
-            {/* Right Side - Form Section */}
+            {/* Lado Direito - Seção de Formulário */}
             <div className="w-full lg:w-2/5 flex items-center justify-center p-8 bg-[#020617] border-l border-slate-900 shadow-[-20px_0_50px_rgba(0,0,0,0.5)]">
 
                 <motion.div
@@ -136,8 +134,8 @@ const Login = ({ branding }) => {
                     </div>
 
                     <div className="mb-8">
-                        <h3 className="text-3xl font-black text-white mb-2 tracking-tight">System Login</h3>
-                        <p className="text-slate-500 font-medium">Enter your access credentials to continue.</p>
+                        <h3 className="text-3xl font-black text-white mb-2 tracking-tight">Login do Sistema</h3>
+                        <p className="text-slate-500 font-medium">Insira suas credenciais de acesso para continuar.</p>
                     </div>
 
                     <AnimatePresence mode="wait">
@@ -156,7 +154,7 @@ const Login = ({ branding }) => {
 
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div className="space-y-1.5">
-                            <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Username</label>
+                            <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Usuário</label>
                             <div className="relative group">
                                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none transition-colors group-focus-within:text-blue-500 text-slate-500">
                                     <User className="h-5 w-5" />
@@ -167,15 +165,15 @@ const Login = ({ branding }) => {
                                     value={username}
                                     onChange={(e) => setUsername(e.target.value)}
                                     className="block w-full pl-11 pr-4 py-4 bg-slate-900/50 border border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder:text-slate-700 text-white font-medium"
-                                    placeholder="Enter your username"
+                                    placeholder="Digite seu usuário"
                                 />
                             </div>
                         </div>
 
                         <div className="space-y-1.5">
                             <div className="flex items-center justify-between px-1">
-                                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Password</label>
-                                <button type="button" className="text-xs font-bold text-blue-500 hover:text-blue-400 transition-colors">Forgot?</button>
+                                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Senha</label>
+                                <button type="button" className="text-xs font-bold text-blue-500 hover:text-blue-400 transition-colors">Esqueceu?</button>
                             </div>
                             <div className="relative group">
                                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none transition-colors group-focus-within:text-blue-500 text-slate-500">
@@ -188,6 +186,7 @@ const Login = ({ branding }) => {
                                     onChange={(e) => setPassword(e.target.value)}
                                     className="block w-full pl-11 pr-12 py-4 bg-slate-900/50 border border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder:text-slate-700 text-white font-medium"
                                     placeholder="••••••••"
+                                    autoComplete="current-password"
                                 />
                                 <button
                                     type="button"
@@ -207,14 +206,27 @@ const Login = ({ branding }) => {
                             {isPending ? (
                                 <Loader2 className="w-5 h-5 animate-spin" />
                             ) : (
-                                <>Access System <ChevronRight className="w-4 h-4" /></>
+                                <>Acessar Sistema <ChevronRight className="w-4 h-4" /></>
                             )}
                         </button>
                     </form>
 
+                    <div className="mt-8 space-y-3">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setUsername('usuario@teste.com');
+                                setPassword('teste123');
+                            }}
+                            className="w-full py-3 bg-slate-900/50 hover:bg-slate-800 border border-slate-800 hover:border-blue-500/50 text-blue-400 rounded-2xl font-bold text-xs uppercase tracking-widest transition-all"
+                        >
+                            Entrar como usuário teste
+                        </button>
+                    </div>
+
                     <div className="mt-8 pt-8 border-t border-slate-900 text-center">
                         <p className="text-slate-500 text-sm font-medium">
-                            Don't have an account? <button className="text-blue-500 font-bold hover:underline">Request access</button>
+                            Não tem uma conta? <button className="text-blue-500 font-bold hover:underline">Solicitar acesso</button>
                         </p>
                     </div>
                 </motion.div>

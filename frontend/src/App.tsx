@@ -9,20 +9,28 @@ import ProtectedRoute from './core/auth/ProtectedRoute';
 import Login from './core/auth/Login';
 import { ModuleSelector } from './core/components/Controls';
 import GoogleTranslateWidget from './core/components/GoogleTranslateWidget';
+import ChangePasswordModal from './core/auth/ChangePasswordModal';
 // MÓDULOS (Conteúdo do Projeto)
 // Importe os arquivos de configuração e os módulos do seu novo projeto aqui.
 // Exemplo: import MyCustomModule from './modules/my-custom-module/Main';
-import { Box } from 'lucide-react';
+import { Box, Key, Activity, Palette } from 'lucide-react';
+import ApiKeysPage from './modules/llm/ApiKeysPage';
+import SitemapBuilder from './modules/sitemap/pages/SitemapBuilder';
+import LayoutSelector from './core/components/LayoutSelector';
 
 const SarakConfig = {
   branding: {
-    title: "Sarak System",
-    subtitle: "Agnostic UI Engine",
+    name: "Sarak - Site Map",
     logoPath: "logo.png"
   },
-  defaultTab: 'welcome',
+  defaultTab: 'sitemap-builder',
+  navigation: [
+    { id: 'sitemap-builder', label: 'Mapa Mental', icon: <Activity className="w-4 h-4" /> },
+    { id: 'themes', label: 'Temas', icon: <Palette className="w-4 h-4" /> },
+    { id: 'api-keys', label: 'Dashboard LLM', icon: <Key className="w-4 h-4" /> }
+  ],
   modules: [
-    { id: 'moduleA', name: 'Módulo A', icon: <Box className="w-4 h-4" /> }
+    { id: 'core', name: 'Core', icon: <Box className="w-4 h-4" /> }
   ]
 };
 
@@ -40,10 +48,19 @@ const AppContent = () => {
   const { user, logout } = useAuth();
   const [activeTab, setActiveTab] = useState(SarakConfig.defaultTab);
   const [currentModule, setCurrentModule] = useState(SarakConfig.modules[0]?.id);
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
 
-  const renderContent = (tab) => {
-    // O Sarak Engine (Core) delega o conteúdo para o módulo do projeto específico
-    return <WelcomeScreen />;
+  const renderContent = (tab: any) => {
+    switch (tab) {
+      case 'sitemap-builder':
+        return <SitemapBuilder />;
+      case 'themes':
+        return <LayoutSelector />;
+      case 'api-keys':
+        return <ApiKeysPage />;
+      default:
+        return <WelcomeScreen />;
+    }
   };
 
   return (
@@ -60,18 +77,16 @@ const AppContent = () => {
               renderContent={renderContent}
               user={user}
               onLogout={logout}
-              onPasswordModal={() => console.log("Password Modal")}
-              moduleSelector={
-                <ModuleSelector
-                  currentModule={currentModule}
-                  setCurrentModule={setCurrentModule}
-                  modules={SarakConfig.modules}
-                />
-              }
+              onPasswordModal={() => setIsPasswordModalOpen(true)}
+              moduleSelector={null}
             />
           </ProtectedRoute>
         } />
       </Routes>
+      <ChangePasswordModal
+        isOpen={isPasswordModalOpen}
+        onClose={() => setIsPasswordModalOpen(false)}
+      />
     </>
   );
 };

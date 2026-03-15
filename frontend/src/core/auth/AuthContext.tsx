@@ -13,7 +13,7 @@ export const useAuth = () => {
 
 // Base Axios configuration
 const api = axios.create({
-    baseURL: 'http://localhost:8095', // Adjust port if necessary according to server.py
+    baseURL: 'http://localhost:1300', // Adjust port if necessary according to server.py
 });
 
 export const AuthProvider = ({ children }) => {

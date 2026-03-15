@@ -70,9 +70,16 @@
   overflow: hidden;
 }
 
+.shadow-theme {
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, calc(var(--shadow-intensity) * 4));
+}
+
+.dark .shadow-theme {
+  box-shadow: 0 15px 40px -12px rgba(0, 0, 0, 0.6);
+}
+
 .light .bg-theme-card {
   border-color: var(--border-tooltip);
-  /* Use tooltip border for more structure in light mode */
 }
 
 .bg-theme-card::before {
