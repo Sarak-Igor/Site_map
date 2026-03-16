@@ -4,7 +4,7 @@ import { ChevronRight, ChevronDown, ChevronLeft, ChevronUp, Keyboard, X } from '
 import { useTheme } from '../contexts/ThemeContext';
 import { useShortcut } from '../hooks/useShortcut';
 import ShortcutsModal from './ShortcutsModal';
-import { ThemeToggle, UserMenu } from './Controls';
+import { ThemeToggle } from './Controls';
 import LanguageSettingsModal from './LanguageSettingsModal';
 import { ANIMATION_VARIANTS, EMOJI_SETS } from '../constants/animations';
 
@@ -14,10 +14,7 @@ const SarakShell = ({
     activeTab,
     setActiveTab,
     renderContent,
-    user,
-    onLogout,
-    onPasswordModal,
-    moduleSelector // Optional: Sub-module selector (e.g. CRM/Dashboard)
+    moduleSelector
 }) => {
     const {
         navigationStyle,
@@ -156,18 +153,11 @@ const SarakShell = ({
                             ))}
                         </nav>
 
-                        {/* Footer / User */}
+                        {/* Footer */}
                         <div className="p-4 border-t border-theme-border space-y-4">
                             {moduleSelector}
-                            <div className="flex flex-col gap-2">
-                                <div className="flex items-center gap-2">
-                                    <ThemeToggle />
-                                    <UserMenu
-                                        user={user}
-                                        onPasswordModal={onPasswordModal}
-                                        onLogout={onLogout}
-                                    />
-                                </div>
+                            <div className="flex items-center gap-2">
+                                <ThemeToggle />
                             </div>
                         </div>
                     </motion.aside>
@@ -197,11 +187,6 @@ const SarakShell = ({
                         <div className="h-4 w-px bg-theme-border mx-2"></div>
 
                         <ThemeToggle />
-                        <UserMenu
-                            user={user}
-                            onPasswordModal={onPasswordModal}
-                            onLogout={onLogout}
-                        />
                     </div>
                 </div>
             )}

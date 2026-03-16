@@ -23,6 +23,7 @@ const SitemapBuilder = () => {
     const [colorMode, setColorMode] = useState<'mono' | 'multi'>('mono');
     const [edgeColorMode, setEdgeColorMode] = useState<'colored' | 'bw'>('colored');
     const [spacing, setSpacing] = useState('m'); // pp, p, m, g, gg
+    const [edgeWidth, setEdgeWidth] = useState('m'); // pp, p, m, g, gg
 
     // History for Undo (Ctrl+Z)
     const [history, setHistory] = useState<string[]>([]);
@@ -139,43 +140,60 @@ const SitemapBuilder = () => {
         if (!sitemapRef.current || !rendererRef.current) return;
         try {
             const bounds = rendererRef.current.getBounds();
-            const nodes = rendererRef.current.getNodes();
-            const edges = rendererRef.current.getEdges();
+            const currentNodes = rendererRef.current.getNodes();
+            if (!bounds || currentNodes.length === 0) return;
 
-            if (!bounds || nodes.length === 0) return;
+            const panelEl = sitemapRef.current;
+            const panelWidth = panelEl.offsetWidth;
+            const panelHeight = panelEl.offsetHeight;
+            const padding = 80;
 
-            const padding = 60; // Mais respiro nas bordas
-            const width = bounds.width + padding * 2;
-            const height = bounds.height + padding * 2;
+            // Calcula o zoom para fazer todos os nós caberem no painel com padding
+            const zoomX = (panelWidth - padding * 2) / bounds.width;
+            const zoomY = (panelHeight - padding * 2) / bounds.height;
+            const fitZoom = Math.min(zoomX, zoomY, 2); // Limita a 2x para não exagerar
 
-            // Super-Sampling: pixelRatio 2 ou 3 é o ideal para equilíbrio entre peso e nitidez
-            const dataUrl = await toPng(sitemapRef.current, {
+            // Centraliza o conteúdo no painel com o zoom calculado
+            const scaledW = bounds.width * fitZoom;
+            const scaledH = bounds.height * fitZoom;
+            const viewportX = (panelWidth - scaledW) / 2 - bounds.x * fitZoom;
+            const viewportY = (panelHeight - scaledH) / 2 - bounds.y * fitZoom;
+
+            // Salva o viewport atual para restaurar depois
+            const originalViewport = rendererRef.current.getViewport();
+
+            // Aplica o viewport de captura
+            rendererRef.current.setViewport({ x: viewportX, y: viewportY, zoom: fitZoom });
+
+            // Aguarda o React renderizar o novo viewport (2 frames)
+            await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+            // Captura o painel em alta resolução: 4x = zoom sem perda de nitidez
+            const PIXEL_RATIO = 4;
+            const dataUrl = await toPng(panelEl, {
                 backgroundColor: '#0f172a',
                 quality: 1,
-                pixelRatio: 2.5,
-                width: width,
-                height: height,
-                style: {
-                    width: `${width}px`,
-                    height: `${height}px`,
-                    transform: `translate(${-bounds.x + padding}px, ${-bounds.y + padding}px)`,
-                },
+                pixelRatio: PIXEL_RATIO,
+                width: panelWidth,
+                height: panelHeight,
+                style: { width: `${panelWidth}px`, height: `${panelHeight}px` },
                 filter: (node: any) => {
                     const exclusionClasses = [
                         'react-flow__controls',
                         'react-flow__panel',
                         'react-flow__background',
-                        'react-flow__attribution'
+                        'react-flow__attribution',
+                        'react-flow__minimap'
                     ];
-                    if (node.classList && exclusionClasses.some(cls => node.classList.contains(cls))) {
-                        return false;
-                    }
-                    return true;
+                    return !(node.classList && exclusionClasses.some(cls => node.classList.contains(cls)));
                 }
             });
 
+            // Restaura o viewport original
+            rendererRef.current.setViewport(originalViewport);
+
             const link = document.createElement('a');
-            link.download = 'sitemap-hd.png';
+            link.download = 'mapa-hd.png';
             link.href = dataUrl;
             link.click();
         } catch (err) {
@@ -184,78 +202,144 @@ const SitemapBuilder = () => {
         }
     };
 
-    const downloadHTML = () => {
-        if (!rendererRef.current) return;
+    const downloadHTML = async () => {
+        if (!sitemapRef.current || !rendererRef.current) return;
+        try {
+            const bounds = rendererRef.current.getBounds();
+            const currentNodes = rendererRef.current.getNodes();
+            if (!bounds || currentNodes.length === 0) return;
 
-        // PEGANDO OS DADOS JÁ LAYOUTADOS (COM X E Y)
-        const layoutedNodes = rendererRef.current.getNodes();
-        const layoutedEdges = rendererRef.current.getEdges();
+            const panelEl = sitemapRef.current;
+            const panelWidth = panelEl.offsetWidth;
+            const panelHeight = panelEl.offsetHeight;
+            const padding = 80;
 
-        const htmlTemplate = `
-<!DOCTYPE html>
-<html>
+            const zoomX = (panelWidth - padding * 2) / bounds.width;
+            const zoomY = (panelHeight - padding * 2) / bounds.height;
+            const fitZoom = Math.min(zoomX, zoomY, 2);
+            const scaledW = bounds.width * fitZoom;
+            const scaledH = bounds.height * fitZoom;
+            const viewportX = (panelWidth - scaledW) / 2 - bounds.x * fitZoom;
+            const viewportY = (panelHeight - scaledH) / 2 - bounds.y * fitZoom;
+
+            const originalViewport = rendererRef.current.getViewport();
+            rendererRef.current.setViewport({ x: viewportX, y: viewportY, zoom: fitZoom });
+            await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+            // Captura o SVG do mapa atual para embedar diretamente no HTML
+            const { toSvg } = await import('html-to-image');
+            const svgDataUrl = await toSvg(panelEl, {
+                backgroundColor: '#0f172a',
+                width: panelWidth,
+                height: panelHeight,
+                style: { width: `${panelWidth}px`, height: `${panelHeight}px` },
+                filter: (node: any) => {
+                    const exclusionClasses = ['react-flow__controls', 'react-flow__panel', 'react-flow__background', 'react-flow__attribution', 'react-flow__minimap'];
+                    return !(node.classList && exclusionClasses.some(cls => node.classList.contains(cls)));
+                }
+            });
+
+            rendererRef.current.setViewport(originalViewport);
+
+            // Extrai o SVG em string do data URL
+            let svgContent: string;
+            if (svgDataUrl.includes('base64,')) {
+                svgContent = atob(svgDataUrl.split('base64,')[1]);
+            } else {
+                svgContent = decodeURIComponent(svgDataUrl.split(',').slice(1).join(','));
+            }
+
+            const htmlTemplate = `<!DOCTYPE html>
+<html lang="pt-BR">
 <head>
     <meta charset="utf-8">
-    <title>Sitemap Interativo - Export</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Mapa Interativo</title>
     <style>
-        body, html, #app { margin: 0; padding: 0; width: 100vw; height: 100vh; background: #0f172a; overflow: hidden; font-family: 'Inter', sans-serif; color: white; }
-        .loading { display: flex; align-items: center; justify-content: center; height: 100%; font-size: 1.2rem; font-weight: bold; background: #0f172a; }
-        /* Estilos básicos para os nós no export */
-        .react-flow__node-custom { padding: 10px 15px; border-radius: 12px; font-size: 12px; font-weight: bold; border: 1px solid rgba(255,255,255,0.1); background: rgba(30, 41, 59, 0.8); color: white; min-width: 150px; text-align: center; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background: #0f172a; width: 100vw; height: 100vh; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+        #map-container { width: 100%; height: 100%; cursor: grab; display: flex; align-items: center; justify-content: center; }
+        #map-container:active { cursor: grabbing; }
+        #map-container svg { width: 100%; height: 100%; display: block; }
+        .hint { position: fixed; bottom: 16px; right: 16px; background: rgba(30,41,59,0.8); color: #94a3b8; font-size: 11px; padding: 8px 12px; border-radius: 8px; backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.08); font-family: system-ui, sans-serif; }
     </style>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
 </head>
 <body>
-    <div id="app"><div class="loading">Carregando Mapa Interativo...</div></div>
-    <script type="importmap">
-    {
-        "imports": {
-            "react": "https://esm.sh/react@18",
-            "react-dom/client": "https://esm.sh/react-dom@18/client",
-            "@xyflow/react": "https://esm.sh/@xyflow/react@12"
+    <div id="map-container">
+        ${svgContent}
+    </div>
+    <div class="hint">🖱 Arraste para mover · Scroll para zoom</div>
+    <script src="https://cdn.jsdelivr.net/npm/@panzoom/panzoom@4/dist/panzoom.min.js"></script>
+    <script>
+        const el = document.querySelector('#map-container svg');
+        if (el) {
+            const pz = Panzoom(el, { maxScale: 8, minScale: 0.2, contain: 'outside', step: 0.15 });
+            document.getElementById('map-container').addEventListener('wheel', pz.zoomWithWheel);
         }
-    }
-    </script>
-    <link rel="stylesheet" href="https://esm.sh/@xyflow/react@12/dist/style.css">
-    <script type="module">
-        import React from 'react';
-        import { createRoot } from 'react-dom/client';
-        import { ReactFlow, Background, Controls } from '@xyflow/react';
-
-        const nodes = ${JSON.stringify(layoutedNodes)};
-        const edges = ${JSON.stringify(layoutedEdges)};
-
-        function App() {
-            return React.createElement(
-                'div', 
-                { style: { width: '100%', height: '100%' } },
-                React.createElement(ReactFlow, {
-                    nodes: nodes,
-                    edges: edges,
-                    fitView: true,
-                    minZoom: 0.1,
-                    proOptions: { hideAttribution: true }
-                }, 
-                    React.createElement(Background, { color: "#334155", gap: 24, size: 1 }),
-                    React.createElement(Controls)
-                )
-            );
-        }
-
-        const container = document.getElementById('app');
-        const root = createRoot(container);
-        root.render(React.createElement(App));
     </script>
 </body>
 </html>`;
 
-        const blob = new Blob([htmlTemplate], { type: 'text/html' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = 'sitemap-interativo.html';
-        link.click();
-        URL.revokeObjectURL(url);
+            const blob = new Blob([htmlTemplate], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'mapa-interativo.html';
+            link.click();
+            URL.revokeObjectURL(url);
+        } catch (err) {
+            console.error('Erro ao gerar HTML:', err);
+            setError('Erro ao exportar HTML.');
+        }
+    };
+
+    const downloadSVG = async () => {
+        if (!sitemapRef.current || !rendererRef.current) return;
+        try {
+            const bounds = rendererRef.current.getBounds();
+            const currentNodes = rendererRef.current.getNodes();
+            if (!bounds || currentNodes.length === 0) return;
+
+            const panelEl = sitemapRef.current;
+            const panelWidth = panelEl.offsetWidth;
+            const panelHeight = panelEl.offsetHeight;
+            const padding = 80;
+
+            const zoomX = (panelWidth - padding * 2) / bounds.width;
+            const zoomY = (panelHeight - padding * 2) / bounds.height;
+            const fitZoom = Math.min(zoomX, zoomY, 2);
+            const scaledW = bounds.width * fitZoom;
+            const scaledH = bounds.height * fitZoom;
+            const viewportX = (panelWidth - scaledW) / 2 - bounds.x * fitZoom;
+            const viewportY = (panelHeight - scaledH) / 2 - bounds.y * fitZoom;
+
+            const originalViewport = rendererRef.current.getViewport();
+            rendererRef.current.setViewport({ x: viewportX, y: viewportY, zoom: fitZoom });
+            await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+            // Captura usando toSvg da html-to-image (mesma lib, diferente formato)
+            const { toSvg } = await import('html-to-image');
+            const svgDataUrl = await toSvg(panelEl, {
+                backgroundColor: '#0f172a',
+                width: panelWidth,
+                height: panelHeight,
+                style: { width: `${panelWidth}px`, height: `${panelHeight}px` },
+                filter: (node: any) => {
+                    const exclusionClasses = ['react-flow__controls', 'react-flow__panel', 'react-flow__background', 'react-flow__attribution', 'react-flow__minimap'];
+                    return !(node.classList && exclusionClasses.some(cls => node.classList.contains(cls)));
+                }
+            });
+
+            rendererRef.current.setViewport(originalViewport);
+
+            const link = document.createElement('a');
+            link.download = 'mapa-vetorial.svg';
+            link.href = svgDataUrl;
+            link.click();
+        } catch (err) {
+            console.error('Erro ao gerar SVG:', err);
+            setError('Erro ao exportar SVG.');
+        }
     };
 
     return (
@@ -360,8 +444,8 @@ const SitemapBuilder = () => {
                                                 key={s}
                                                 onClick={() => setSpacing(s)}
                                                 className={`flex-1 py-1.5 rounded-lg text-xs font-bold uppercase transition-all ${spacing === s
-                                                        ? 'bg-theme-primary text-white shadow-md'
-                                                        : 'text-theme-muted hover:text-theme-title hover:bg-theme-sidebar/50'
+                                                    ? 'bg-theme-primary text-white shadow-md'
+                                                    : 'text-theme-muted hover:text-theme-title hover:bg-theme-sidebar/50'
                                                     }`}
                                             >
                                                 {s}
@@ -379,8 +463,8 @@ const SitemapBuilder = () => {
                                         <button
                                             onClick={() => setEdgeColorMode('colored')}
                                             className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold uppercase transition-all ${edgeColorMode === 'colored'
-                                                    ? 'bg-theme-primary text-white shadow-md'
-                                                    : 'text-theme-muted hover:text-theme-title hover:bg-theme-sidebar/50'
+                                                ? 'bg-theme-primary text-white shadow-md'
+                                                : 'text-theme-muted hover:text-theme-title hover:bg-theme-sidebar/50'
                                                 }`}
                                         >
                                             <Palette className="w-3 h-3" /> Colorido
@@ -388,12 +472,33 @@ const SitemapBuilder = () => {
                                         <button
                                             onClick={() => setEdgeColorMode('bw')}
                                             className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold uppercase transition-all ${edgeColorMode === 'bw'
-                                                    ? 'bg-theme-primary text-white shadow-md'
-                                                    : 'text-theme-muted hover:text-theme-title hover:bg-theme-sidebar/50'
+                                                ? 'bg-theme-primary text-white shadow-md'
+                                                : 'text-theme-muted hover:text-theme-title hover:bg-theme-sidebar/50'
                                                 }`}
                                         >
                                             <div className="w-3 h-3 border-2 border-theme-muted rounded-full" /> P&B
                                         </button>
+                                    </div>
+                                </div>
+
+                                {/* Largura das Linhas */}
+                                <div>
+                                    <label className="block text-xs font-bold text-theme-title uppercase tracking-wider mb-3">
+                                        Largura das Linhas
+                                    </label>
+                                    <div className="flex bg-theme-body p-1 rounded-xl border border-theme-border/50">
+                                        {['pp', 'p', 'm', 'g', 'gg'].map((w) => (
+                                            <button
+                                                key={w}
+                                                onClick={() => setEdgeWidth(w)}
+                                                className={`flex-1 py-1.5 rounded-lg text-xs font-bold uppercase transition-all ${edgeWidth === w
+                                                    ? 'bg-theme-primary text-white shadow-md'
+                                                    : 'text-theme-muted hover:text-theme-title hover:bg-theme-sidebar/50'
+                                                    }`}
+                                            >
+                                                {w}
+                                            </button>
+                                        ))}
                                     </div>
                                 </div>
 
@@ -408,8 +513,8 @@ const SitemapBuilder = () => {
                                                 key={t.id}
                                                 onClick={() => setTemplateId(t.id)}
                                                 className={`flex items-start gap-4 p-4 rounded-xl border transition-all text-left ${templateId === t.id
-                                                        ? 'bg-theme-primary/20 border-theme-primary text-theme-primary shadow-md scale-[1.02]'
-                                                        : 'bg-transparent border-theme-border text-theme-muted hover:border-theme-primary/50 hover:bg-theme-card'
+                                                    ? 'bg-theme-primary/20 border-theme-primary text-theme-primary shadow-md scale-[1.02]'
+                                                    : 'bg-transparent border-theme-border text-theme-muted hover:border-theme-primary/50 hover:bg-theme-card'
                                                     }`}
                                             >
                                                 <div className={`p-2.5 rounded-lg mt-0.5 ${templateId === t.id ? 'bg-theme-primary text-white shadow-lg' : 'bg-theme-body border border-theme-border'}`}>
@@ -462,7 +567,7 @@ const SitemapBuilder = () => {
                                     setIsMindMapSectionOpen(false);
                                     // Se o texto for o padrão inicial ou estiver vazio, sugere o exemplo de Roadmap
                                     if (rawText.includes("EMPRESA") || rawText.trim() === "") {
-                                        setRawText("Roadmap de Expansão de Mercado 2026\n  Fase 1: Pesquisa e Planejamento {T1} | Análise de concorrência e público\n    Estudo de Viabilidade Econômica [Concluído]\n    Pesquisa de UX e Recomendações [Em Progresso]\n  Fase 2: Infraestrutura e Tecnologia {T2} | Setup de servidores e APIs\n    Deploy do Core do Sistema [Não Iniciado]\n    Integração com Gateway de Pagamento [Não Iniciado]\n  Fase 3: Lançamento e Marketing {Q3} | Campanhas de aquisição\n    Campanha de Tráfego Pago [Não Iniciado]\n    Evento de Lançamento Digital [Não Iniciado]");
+                                        setRawText("Roadmap de Expansão de Mercado 2026\n  Fase 1: Pesquisa e Planejamento {T1} | Análise de concorrência e público\n    Estudo de Viabilidade Econômica [Concluído]\n      Análise SWOT (80%)\n      Benchmark Competitivo (100%)\n    Pesquisa de UX e Recomendações [Em Progresso]\n      Testes com Usuários (60%)\n      Relatório de Acessibilidade (40%)\n  Fase 2: Infraestrutura e Tecnologia {T2} | Setup de servidores e APIs\n    Deploy do Core do Sistema [Não Iniciado]\n      Config. de Ambiente Cloud (0%)\n      Pipeline de CI/CD (0%)\n    Integração com Gateway de Pagamento [Não Iniciado]\n      Stripe API (0%)\n      Fallback Pix (0%)\n  Fase 3: Lançamento e Marketing {Q3} | Campanhas de aquisição\n    Campanha de Tráfego Pago [Não Iniciado]\n      Google Ads (0%)\n      Meta Ads (0%)\n    Evento de Lançamento Digital [Não Iniciado]\n      Live no YouTube (0%)\n      Webinar com Parceiros (0%)");
                                         setTemplateId('timeline');
                                     }
                                 }
@@ -529,6 +634,27 @@ const SitemapBuilder = () => {
                                     </div>
                                 </div>
 
+                                {/* Espaçamento */}
+                                <div>
+                                    <label className="block text-xs font-bold text-theme-title uppercase tracking-wider mb-3">
+                                        Espaçamento
+                                    </label>
+                                    <div className="flex bg-theme-body p-1 rounded-xl border border-theme-border/50">
+                                        {['pp', 'p', 'm', 'g', 'gg'].map((s) => (
+                                            <button
+                                                key={s}
+                                                onClick={() => setSpacing(s)}
+                                                className={`flex-1 py-1.5 rounded-lg text-xs font-bold uppercase transition-all ${spacing === s
+                                                    ? 'bg-emerald-500 text-white shadow-md'
+                                                    : 'text-theme-muted hover:text-theme-title hover:bg-theme-sidebar/50'
+                                                    }`}
+                                            >
+                                                {s}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
                                 {/* Cor das Linhas */}
                                 <div>
                                     <label className="text-[10px] font-black uppercase tracking-widest text-theme-muted mb-2 block flex items-center gap-2">
@@ -538,8 +664,8 @@ const SitemapBuilder = () => {
                                         <button
                                             onClick={() => setEdgeColorMode('colored')}
                                             className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold uppercase transition-all ${edgeColorMode === 'colored'
-                                                    ? 'bg-emerald-500 text-white shadow-md'
-                                                    : 'text-theme-muted hover:text-theme-title hover:bg-theme-sidebar/50'
+                                                ? 'bg-emerald-500 text-white shadow-md'
+                                                : 'text-theme-muted hover:text-theme-title hover:bg-theme-sidebar/50'
                                                 }`}
                                         >
                                             <Palette className="w-3 h-3" /> Colorido
@@ -547,12 +673,33 @@ const SitemapBuilder = () => {
                                         <button
                                             onClick={() => setEdgeColorMode('bw')}
                                             className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold uppercase transition-all ${edgeColorMode === 'bw'
-                                                    ? 'bg-emerald-500 text-white shadow-md'
-                                                    : 'text-theme-muted hover:text-theme-title hover:bg-theme-sidebar/50'
+                                                ? 'bg-emerald-500 text-white shadow-md'
+                                                : 'text-theme-muted hover:text-theme-title hover:bg-theme-sidebar/50'
                                                 }`}
                                         >
                                             <div className="w-3 h-3 border-2 border-theme-muted rounded-full" /> P&B
                                         </button>
+                                    </div>
+                                </div>
+
+                                {/* Largura das Linhas */}
+                                <div>
+                                    <label className="block text-xs font-bold text-theme-title uppercase tracking-wider mb-3">
+                                        Largura das Linhas
+                                    </label>
+                                    <div className="flex bg-theme-body p-1 rounded-xl border border-theme-border/50">
+                                        {['pp', 'p', 'm', 'g', 'gg'].map((w) => (
+                                            <button
+                                                key={w}
+                                                onClick={() => setEdgeWidth(w)}
+                                                className={`flex-1 py-1.5 rounded-lg text-xs font-bold uppercase transition-all ${edgeWidth === w
+                                                    ? 'bg-emerald-500 text-white shadow-md'
+                                                    : 'text-theme-muted hover:text-theme-title hover:bg-theme-sidebar/50'
+                                                    }`}
+                                            >
+                                                {w}
+                                            </button>
+                                        ))}
                                     </div>
                                 </div>
 
@@ -589,8 +736,8 @@ const SitemapBuilder = () => {
                                                 key={t.id}
                                                 onClick={() => setTemplateId(t.id)}
                                                 className={`flex items-start gap-4 p-4 rounded-xl border transition-all text-left ${templateId === t.id
-                                                        ? 'bg-emerald-500/20 border-emerald-500 text-emerald-500 shadow-md scale-[1.02]'
-                                                        : 'bg-transparent border-theme-border text-theme-muted hover:border-emerald-500/50 hover:bg-theme-card'
+                                                    ? 'bg-emerald-500/20 border-emerald-500 text-emerald-500 shadow-md scale-[1.02]'
+                                                    : 'bg-transparent border-theme-border text-theme-muted hover:border-emerald-500/50 hover:bg-theme-card'
                                                     }`}
                                             >
                                                 <div className={`p-2.5 rounded-lg mt-0.5 ${templateId === t.id ? 'bg-emerald-500 text-white shadow-lg' : 'bg-theme-body border border-theme-border'}`}>
@@ -679,6 +826,14 @@ const SitemapBuilder = () => {
                                 HTML
                             </button>
                             <button
+                                onClick={downloadSVG}
+                                className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-theme-body border border-theme-border/50 text-theme-title text-[10px] font-bold uppercase hover:bg-theme-sidebar/50 transition-all hover:shadow-md group"
+                                title="Exportar como SVG Vetorial (ideal para apresentações)"
+                            >
+                                <Share2 className="w-3.5 h-3.5 text-orange-500 group-hover:scale-110 transition-transform" />
+                                SVG
+                            </button>
+                            <button
                                 onClick={() => downloadData('txt')}
                                 className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-theme-body border border-theme-border/50 text-theme-title text-[10px] font-bold uppercase hover:bg-theme-sidebar/50 transition-all hover:shadow-md group"
                                 title="Baixar Texto Bruto"
@@ -746,6 +901,7 @@ const SitemapBuilder = () => {
                             colorMode={colorMode}
                             edgeColorMode={edgeColorMode}
                             spacing={spacing}
+                            edgeWidth={edgeWidth}
                         />
                     )}
                 </div>

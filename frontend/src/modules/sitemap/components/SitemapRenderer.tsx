@@ -38,7 +38,7 @@ const nodeHeight = 60;
 const getLayoutedElements = (visibleNodes: GraphNode[], visibleEdges: GraphEdge[], direction = 'TB', templateId?: string, spacing: string = 'm') => {
     const dagreGraph = new dagre.graphlib.Graph();
     dagreGraph.setDefaultEdgeLabel(() => ({}));
-    
+
     const isHorizontal = direction === 'LR';
     const isRoadmap = ['timeline', 'milestone', 'gantt', 'wave', 'isometric', 'minimal', 'blueprint', 'glass', 'winding', 'zigzag'].includes(templateId || '');
 
@@ -52,16 +52,17 @@ const getLayoutedElements = (visibleNodes: GraphNode[], visibleEdges: GraphEdge[
     };
     const scale = spacingMap[spacing] || spacingMap.m;
 
-    // Ajustes específicos para Roadmap: Maior separação entre ranks (fases) e muito maior entre nós do mesmo rank (para alternância)
+    // Ajustes específicos para Roadmap: usa o scale como multiplicador sobre as bases
+    const spacingMultiplier = ({ pp: 0.5, p: 0.75, m: 1, g: 1.5, gg: 2.25 } as Record<string, number>)[spacing] ?? 1;
     const isHighExpansion = ['wave', 'timeline', 'isometric', 'glass', 'winding', 'zigzag'].includes(templateId || '');
-    const nodesep = isHighExpansion ? 350 : (isRoadmap ? 180 : scale.node); 
-    const ranksep = templateId === 'wave' ? 400 : (isRoadmap ? 220 : scale.rank);
+    const nodesep = isHighExpansion ? Math.round(350 * spacingMultiplier) : (isRoadmap ? Math.round(180 * spacingMultiplier) : scale.node);
+    const ranksep = templateId === 'wave' ? Math.round(400 * spacingMultiplier) : (isRoadmap ? Math.round(220 * spacingMultiplier) : scale.rank);
 
-    dagreGraph.setGraph({ 
-        rankdir: direction, 
-        nodesep, 
+    dagreGraph.setGraph({
+        rankdir: direction,
+        nodesep,
         ranksep,
-        ranker: isRoadmap ? 'longest-path' : 'network-simplex' 
+        ranker: isRoadmap ? 'longest-path' : 'network-simplex'
     });
 
     visibleNodes.forEach((node) => {
@@ -97,17 +98,18 @@ const getLayoutedElements = (visibleNodes: GraphNode[], visibleEdges: GraphEdge[
 };
 
 
-const SitemapRendererContent = forwardRef(({ rawNodes, rawEdges, templateId, layoutDirection, nodeColor, colorMode = 'mono', edgeColorMode = 'colored', spacing = 'm' }: { 
-    rawNodes: any[], 
-    rawEdges: any[], 
-    templateId: string, 
+const SitemapRendererContent = forwardRef(({ rawNodes, rawEdges, templateId, layoutDirection, nodeColor, colorMode = 'mono', edgeColorMode = 'colored', spacing = 'm', edgeWidth = 'm' }: {
+    rawNodes: any[],
+    rawEdges: any[],
+    templateId: string,
     layoutDirection: string,
     nodeColor?: string,
     colorMode?: 'mono' | 'multi',
     edgeColorMode?: 'colored' | 'bw',
-    spacing?: string
+    spacing?: string,
+    edgeWidth?: string
 }, ref) => {
-    const { getNodes } = useReactFlow();
+    const { getNodes, setViewport, getViewport, fitView } = useReactFlow();
     const [nodes, setNodes, onNodesChange] = useNodesState<GraphNode>([]);
     const [edges, setEdges, onEdgesChange] = useEdgesState<GraphEdge>([]);
 
@@ -119,9 +121,12 @@ const SitemapRendererContent = forwardRef(({ rawNodes, rawEdges, templateId, lay
             return getNodesBounds(currentNodes);
         },
         getNodes: () => getNodes(),
-        getEdges: () => edges
+        getEdges: () => edges,
+        getViewport: () => getViewport(),
+        setViewport: (vp: { x: number; y: number; zoom: number }) => setViewport(vp, { duration: 0 }),
+        fitView: () => fitView({ padding: 0.1, duration: 0 })
     }));
-    
+
     // Estado de quais Nós estão colapsados/encolhidos. Guarda os IDs.
     const [collapsedNodes, setCollapsedNodes] = useState<Set<string>>(new Set());
 
@@ -129,7 +134,7 @@ const SitemapRendererContent = forwardRef(({ rawNodes, rawEdges, templateId, lay
     const getHiddenDescendants = useCallback((nodeId: string, edgesArray: any[]): string[] => {
         const childrenEdges = edgesArray.filter(e => e.source === nodeId);
         const childrenIds = childrenEdges.map(e => e.target);
-        
+
         let allDescendants = [...childrenIds];
         for (const childId of childrenIds) {
             allDescendants = allDescendants.concat(getHiddenDescendants(childId, edgesArray));
@@ -155,30 +160,11 @@ const SitemapRendererContent = forwardRef(({ rawNodes, rawEdges, templateId, lay
         }
 
         // --- DEFINIR DIRETRIZES DE ORIENTAÇÃO ---
-        const direction = layoutDirection === 'horizontal' ? 'LR' : 'TB'; 
+        const direction = layoutDirection === 'horizontal' ? 'LR' : 'TB';
         const isHorizontal = layoutDirection === 'horizontal';
 
         // Descobre quem é o Nó primário (Root)
         const rootNodes = rawNodes.filter(n => !rawEdges.some(e => e.target === n.id));
-
-        // --- ALGORITMO DE DEPTH (Profundidade) ---
-        // Necessário para pintar as cores regressivamente
-        const nodeDepths: Record<string, number> = {};
-        
-        // BFS (Breadth-First Search) partindo dos roots
-        let queue = rootNodes.map(r => ({ id: r.id, depth: 0 }));
-        while(queue.length > 0) {
-            const current = queue.shift()!;
-            if (nodeDepths[current.id] === undefined) {
-                nodeDepths[current.id] = current.depth;
-                
-                // Encontra os filhos e adiciona na fila com depth + 1
-                const childrenEdges = rawEdges.filter(e => e.source === current.id);
-                childrenEdges.forEach(edge => {
-                    queue.push({ id: edge.target, depth: current.depth + 1 });
-                });
-            }
-        }
 
         // --- GESTÃO DE COLAPSO ---
         let currentlyHiddenNodeIds = new Set<string>();
@@ -205,14 +191,14 @@ const SitemapRendererContent = forwardRef(({ rawNodes, rawEdges, templateId, lay
                 const branches = rawEdges.filter((e: any) => e.source === root.id);
                 branches.forEach((edge: any, index: number) => {
                     const branchColor = multiPalette[index % multiPalette.length];
-                    
+
                     // Função interna para pintar toda a subárvore recursivamente
                     const paintDescendants = (nodeId: string, color: string) => {
                         branchColors[nodeId] = color;
                         const children = rawEdges.filter((e: any) => e.source === nodeId);
                         children.forEach((childEdge: any) => paintDescendants(childEdge.target, color));
                     };
-                    
+
                     paintDescendants(edge.target, branchColor);
                 });
             });
@@ -222,43 +208,56 @@ const SitemapRendererContent = forwardRef(({ rawNodes, rawEdges, templateId, lay
         const isRoadmap = ['timeline', 'milestone', 'gantt', 'wave', 'isometric', 'minimal', 'blueprint', 'glass', 'winding', 'zigzag'].includes(templateId || '');
         let layoutEdges = [...rawEdges];
 
-        // Se for Roadmap, forçamos a Espinha Principal REAL (Sequência absoluta de irmãos)
         if (isRoadmap) {
-            layoutEdges = []; 
-            
-            // 1. Processamos os Roots e seus filhos imediatos (A "Espinha")
-            rootNodes.forEach(root => {
+            layoutEdges = [];
+            const spineNodes: string[] = [];
+
+            // 1. Determina quem faz parte da "Espinha Principal"
+            if (rootNodes.length > 1) {
+                // Se houver várias raízes, elas são a espinha
+                spineNodes.push(...rootNodes.map(n => n.id));
+            } else if (rootNodes.length === 1) {
+                // Se houver apenas uma raiz, ela e seus filhos imediatos são a espinha
+                const root = rootNodes[0];
                 const immediateChildren = rawEdges
                     .filter(e => e.source === root.id)
                     .map(e => e.target);
-                    
-                if (immediateChildren.length > 0) {
-                    // O Root aponta APENAS para o primeiro filho
-                    layoutEdges.push({ 
-                        id: `spine-start-${root.id}`, 
-                        source: root.id, 
-                        target: immediateChildren[0] 
-                    });
+                
+                spineNodes.push(root.id, ...immediateChildren);
+            }
 
-                    // Encadeia todos os irmãos em uma linha única (Espinha)
-                    for (let i = 0; i < immediateChildren.length - 1; i++) {
-                        layoutEdges.push({ 
-                            id: `spine-chain-${immediateChildren[i]}-${immediateChildren[i+1]}`, 
-                            source: immediateChildren[i], 
-                            target: immediateChildren[i+1] 
-                        });
-                    }
+            // 2. Cria o encadeamento linear da espinha
+            for (let i = 0; i < spineNodes.length - 1; i++) {
+                layoutEdges.push({
+                    id: `spine-logic-${spineNodes[i]}-${spineNodes[i + 1]}`,
+                    source: spineNodes[i],
+                    target: spineNodes[i + 1]
+                });
+            }
+
+            // 3. Adiciona as arestas originais que NÃO conflitam com a espinha (Ramificações)
+            // Uma aresta é mantida se o seu 'target' não for um nó que já recebeu um pai na espinha
+            rawEdges.forEach(e => {
+                const targetIsAlreadyInSpineChain = layoutEdges.some(le => le.target === e.target);
+                if (!targetIsAlreadyInSpineChain) {
+                    layoutEdges.push(e);
                 }
             });
+        }
 
-            // 2. Processamos os descendentes profundos (Níveis 2+)
-            // Eles se conectam normalmente aos seus pais, sem encadeamento de irmãos (para agrupar abaixo da fase)
-            const deepEdges = rawEdges.filter(e => {
-                const isFromRoot = rootNodes.some(r => r.id === e.source);
-                return !isFromRoot; // Pega tudo que não sai do root (sub-tarefas)
-            });
-            
-            layoutEdges = [...layoutEdges, ...deepEdges];
+        // --- ALGORITMO DE DEPTH (Profundidade) ---
+        // Recalculado usando layoutEdges para Roadmaps (para espinha ter níveis sequenciais)
+        const nodeDepths: Record<string, number> = {};
+        let queue = rootNodes.map(r => ({ id: r.id, depth: 0 }));
+        while (queue.length > 0) {
+            const current = queue.shift()!;
+            if (nodeDepths[current.id] === undefined) {
+                nodeDepths[current.id] = current.depth;
+                const childrenEdges = layoutEdges.filter(e => e.source === current.id);
+                childrenEdges.forEach(edge => {
+                    queue.push({ id: edge.target, depth: current.depth + 1 });
+                });
+            }
         }
 
         // --- PALETA PARA MODO MULTI ---
@@ -272,7 +271,7 @@ const SitemapRendererContent = forwardRef(({ rawNodes, rawEdges, templateId, lay
 
             // Calcula o índice entre irmãos (nós que compartilham o mesmo pai)
             const parentEdge = rawEdges.find(e => e.target === node.id);
-            const siblings = parentEdge 
+            const siblings = parentEdge
                 ? rawEdges.filter(e => e.source === parentEdge.source).map(e => e.target)
                 : rootNodes.map(r => r.id);
             const index = siblings.indexOf(node.id);
@@ -308,38 +307,59 @@ const SitemapRendererContent = forwardRef(({ rawNodes, rawEdges, templateId, lay
         const isRetro = templateId === 'retro';
 
         const edgeType = (templateId === 'mindmap' || templateId === 'glass' || templateId === 'hologram') ? 'default' : 'smoothstep';
-        
-        // Lógica de Cor das Edges baseada no novo toggle
-        const getBaseEdgeColor = () => {
-            if (edgeColorMode === 'bw') {
-                return (isNeoBrutalist || isRetro) ? 'var(--text-title)' : 'var(--border-color)';
-            }
-            // Se for colorido, segue a regra anterior
-            if (isGrap || isNeoBrutalist) return isNeoBrutalist ? 'var(--text-title)' : (nodeColor || '#4ade80');
-            return (templateId === 'mindmap' || templateId === 'glass' ? 'var(--border-color)' : 'var(--text-muted)');
+
+        // Mapeamento de largura de linhas
+        const edgeWidthMap: Record<string, number> = {
+            pp: 1,
+            p: 1.5,
+            m: 2.5,
+            g: 4,
+            gg: 6
+        };
+        const resolvedEdgeWidth = edgeWidthMap[edgeWidth || 'm'] ?? 2.5;
+
+        // Cor das linhas: resolve cor do tema dinamicamente para funcionar em P&B e Colorido
+        // Usando um elemento de referência para ler CSS custom properties em runtime
+        const getResolvedColor = (cssVar: string): string => {
+            const el = document.documentElement;
+            return getComputedStyle(el).getPropertyValue(cssVar).trim() || '#94a3b8';
         };
 
-        const baseEdgeColor = getBaseEdgeColor();
+        const getBwColor = (): string => {
+            // P&B: usa a cor do texto do tema para que funcione em claro e escuro
+            if (isNeoBrutalist || isRetro) return getResolvedColor('--text-title');
+            return getResolvedColor('--text-muted');
+        };
+
+        const getColoredColor = (): string => {
+            if (isGrap) return nodeColor || '#4ade80';
+            if (isNeoBrutalist) return getResolvedColor('--text-title');
+            return nodeColor || '#3b82f6';
+        };
 
         const draftEdges = layoutEdges.map(e => {
-            let finalStroke = baseEdgeColor;
-            
-            // Se estiver em modo colorido, podemos usar a cor do ramo
-            if (edgeColorMode === 'colored' && colorMode === 'multi' && branchColors[e.target]) {
-                finalStroke = branchColors[e.target];
-            } else if (edgeColorMode === 'colored' && colorMode === 'mono') {
-                finalStroke = nodeColor || baseEdgeColor;
+            let finalStroke: string;
+
+            if (edgeColorMode === 'bw') {
+                finalStroke = getBwColor();
+            } else {
+                // Colorido
+                if (colorMode === 'multi' && branchColors[e.target]) {
+                    finalStroke = branchColors[e.target];
+                } else {
+                    finalStroke = getColoredColor();
+                }
             }
 
             return {
                 ...e,
                 type: edgeType,
-                animated: templateId !== 'orgchart' && !isGrap && templateId !== 'retro', 
+                animated: templateId !== 'orgchart' && !isGrap && templateId !== 'retro',
                 isHidden: currentlyHiddenNodeIds.has(e.target) || currentlyHiddenNodeIds.has(e.source),
-                style: { 
-                    stroke: finalStroke, 
-                    strokeWidth: isRoadmap ? 4 : ((isGrap || isNeoBrutalist) ? 3 : (templateId === 'mindmap' ? 2 : 1.5)), 
-                    opacity: (isGrap || isRoadmap) ? 1 : 0.8 
+                style: {
+                    stroke: finalStroke,
+                    strokeWidth: resolvedEdgeWidth,
+                    opacity: (isGrap || isRoadmap) ? 1 : 0.85
                 }
             };
         });
@@ -359,7 +379,7 @@ const SitemapRendererContent = forwardRef(({ rawNodes, rawEdges, templateId, lay
         setNodes(layoutedNodes);
         setEdges(layoutedEdges);
 
-    }, [rawNodes, rawEdges, templateId, layoutDirection, nodeColor, colorMode, spacing, collapsedNodes, getHiddenDescendants, handleToggleCollapse, setNodes, setEdges]);
+    }, [rawNodes, rawEdges, templateId, layoutDirection, nodeColor, colorMode, edgeColorMode, edgeWidth, spacing, collapsedNodes, getHiddenDescendants, handleToggleCollapse, setNodes, setEdges]);
 
 
     // Para o React Flow não recriar os Types em todo Render (Performance)
