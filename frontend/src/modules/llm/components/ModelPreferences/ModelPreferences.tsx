@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../../../core/auth/AuthContext';
-import { authApi } from '../../../../shared/services/api';
+
 const STRATEGIES = [
     { value: 'performance', label: 'Alto Desempenho (Melhores Modelos)' },
     { value: 'cost_benefit', label: 'Custo-Benefício (Equilíbrio)' },
@@ -9,80 +8,43 @@ const STRATEGIES = [
     { value: 'free', label: 'Gratuito (Somente Free Tier)' }
 ];
 
-export const ModelPreferences = ({ userProfile }: { userProfile?: any }) => {
-    const { user } = useAuth();
-    const [loading, setLoading] = useState(!userProfile);
+export const ModelPreferences = ({ userProfile: initialProfile }: { userProfile?: any }) => {
+    const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [preferences, setPreferences] = useState({
-        usage_mode: userProfile?.model_preferences?.usage_mode || 'free',
-        global_strategy: userProfile?.model_preferences?.global_strategy || 'performance',
-        chat_strategy: userProfile?.model_preferences?.chat_strategy || 'global',
-        code_strategy: userProfile?.model_preferences?.code_strategy || 'global',
-        vision_strategy: userProfile?.model_preferences?.vision_strategy || 'global',
-        video_strategy: userProfile?.model_preferences?.video_strategy || 'global',
-        multimodal_strategy: userProfile?.model_preferences?.multimodal_strategy || 'global',
-        translation_strategy: userProfile?.model_preferences?.translation_strategy || 'global',
-        reasoning_strategy: userProfile?.model_preferences?.reasoning_strategy || 'global',
-        long_context_strategy: userProfile?.model_preferences?.long_context_strategy || 'global',
-        audio_strategy: userProfile?.model_preferences?.audio_strategy || 'global',
-        creative_strategy: userProfile?.model_preferences?.creative_strategy || 'global',
-        structured_strategy: userProfile?.model_preferences?.structured_strategy || 'global',
-        small_model_strategy: userProfile?.model_preferences?.small_model_strategy || 'global'
+        usage_mode: 'free',
+        global_strategy: 'performance',
+        chat_strategy: 'global',
+        code_strategy: 'global',
+        vision_strategy: 'global',
+        video_strategy: 'global',
+        multimodal_strategy: 'global',
+        translation_strategy: 'global',
+        reasoning_strategy: 'global',
+        long_context_strategy: 'global',
+        audio_strategy: 'global',
+        creative_strategy: 'global',
+        structured_strategy: 'global',
+        small_model_strategy: 'global'
     });
     const [message, setMessage] = useState({ text: '', type: '' });
 
     useEffect(() => {
-        if (userProfile) {
-            const prefs = userProfile.model_preferences || {};
-            setPreferences({
-                usage_mode: prefs.usage_mode || 'free',
-                global_strategy: prefs.global_strategy || 'performance',
-                chat_strategy: prefs.chat_strategy || 'global',
-                code_strategy: prefs.code_strategy || 'global',
-                vision_strategy: prefs.vision_strategy || 'global',
-                video_strategy: prefs.video_strategy || 'global',
-                multimodal_strategy: prefs.multimodal_strategy || 'global',
-                translation_strategy: prefs.translation_strategy || 'global',
-                reasoning_strategy: prefs.reasoning_strategy || 'global',
-                long_context_strategy: prefs.long_context_strategy || 'global',
-                audio_strategy: prefs.audio_strategy || 'global',
-                creative_strategy: prefs.creative_strategy || 'global',
-                structured_strategy: prefs.structured_strategy || 'global',
-                small_model_strategy: prefs.small_model_strategy || 'global'
-            });
-            setLoading(false);
-            return;
-        }
-        if (user) {
-            loadPreferences();
-        }
-    }, [user, userProfile]);
+        loadPreferences();
+    }, []);
 
-    const loadPreferences = async () => {
+    const loadPreferences = () => {
         setLoading(true);
         try {
-            const profile = await authApi.getProfile();
-            const prefs = profile.model_preferences || {};
-
-            setPreferences({
-                usage_mode: prefs.usage_mode || 'free',
-                global_strategy: prefs.global_strategy || 'performance',
-                chat_strategy: prefs.chat_strategy || 'global',
-                code_strategy: prefs.code_strategy || 'global',
-                vision_strategy: prefs.vision_strategy || 'global',
-                video_strategy: prefs.video_strategy || 'global',
-                multimodal_strategy: prefs.multimodal_strategy || 'global',
-                translation_strategy: prefs.translation_strategy || 'global',
-                reasoning_strategy: prefs.reasoning_strategy || 'global',
-                long_context_strategy: prefs.long_context_strategy || 'global',
-                audio_strategy: prefs.audio_strategy || 'global',
-                creative_strategy: prefs.creative_strategy || 'global',
-                structured_strategy: prefs.structured_strategy || 'global',
-                small_model_strategy: prefs.small_model_strategy || 'global'
-            });
+            // Tenta carregar do localStorage primeiro, depois do prop, depois default
+            const saved = localStorage.getItem('sarak_model_preferences');
+            if (saved) {
+                setPreferences(JSON.parse(saved));
+            } else if (initialProfile?.model_preferences) {
+                setPreferences({ ...preferences, ...initialProfile.model_preferences });
+            }
         } catch (error) {
-            console.error('Erro ao carregar preferências:', error);
-            setMessage({ type: 'error', text: 'Erro ao carregar preferências.' });
+            console.error('Erro ao carregar preferências locais:', error);
         } finally {
             setLoading(false);
         }
@@ -92,10 +54,10 @@ export const ModelPreferences = ({ userProfile }: { userProfile?: any }) => {
         setSaving(true);
         setMessage({ text: '', type: '' });
         try {
-            await authApi.updatePreferences(preferences);
-            setMessage({ type: 'success', text: 'Preferências salvas com sucesso!' });
+            localStorage.setItem('sarak_model_preferences', JSON.stringify(preferences));
+            setMessage({ type: 'success', text: 'Preferências salvas localmente com sucesso!' });
         } catch (error) {
-            console.error('Erro ao salvar:', error);
+            console.error('Erro ao salvar localmente:', error);
             setMessage({ type: 'error', text: 'Erro ao salvar preferências.' });
         } finally {
             setSaving(false);

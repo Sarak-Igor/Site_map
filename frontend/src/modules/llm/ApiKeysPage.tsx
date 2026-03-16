@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Key, Activity, RefreshCw, Plus, CheckCircle2, AlertCircle, Info, ExternalLink, BarChart3, Database, Calculator, Brain, Trash2 } from 'lucide-react';
-import { apiKeysApi, ApiKeyStatus, usageApi, UsageStatsResponse, modelCatalogApi, CatalogStatusResponse, authApi } from '../../shared/services/api';
+import { apiKeysApi, ApiKeyStatus, usageApi, UsageStatsResponse, modelCatalogApi, CatalogStatusResponse } from '../../shared/services/api';
 import ExpandableCard from '../../core/components/ExpandableCard';
 import { ModelsTab } from './components/ModelsTab/ModelsTab';
 import { ModelPreferences } from './components/ModelPreferences/ModelPreferences';
@@ -42,11 +42,10 @@ const ApiKeysPage: React.FC = () => {
     const loadData = async () => {
         try {
             setLoading(true);
-            const [keysRes, usageRes, catalogStatusRes, profileRes, modelsRes] = await Promise.all([
+            const [keysRes, usageRes, catalogStatusRes, modelsRes] = await Promise.all([
                 apiKeysApi.list(),
                 usageApi.getStats(),
                 modelCatalogApi.getStatus(),
-                authApi.getProfile(),
                 modelCatalogApi.listModels()
             ]);
 
@@ -59,9 +58,13 @@ const ApiKeysPage: React.FC = () => {
             setKeys(loadedKeys);
             setUsage(usageRes);
             setCatalogStatus(catalogStatusRes);
-            setProfile(profileRes);
             setModels(modelsRes.models || []);
-            setUserPrefs(profileRes.model_preferences || {});
+            
+            // Carrega preferências do localStorage se existirem
+            const savedPrefs = localStorage.getItem('sarak_model_preferences');
+            if (savedPrefs) {
+                setUserPrefs(JSON.parse(savedPrefs));
+            }
 
             // Verificação automática de status para todas as chaves carregadas
             if (loadedKeys.length > 0) {

@@ -9,26 +9,6 @@ const api = axios.create({
     },
 });
 
-api.interceptors.request.use((config) => {
-    const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
-    if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-});
-
-api.interceptors.response.use(
-    (response) => response,
-    (error) => {
-        if (error.response?.status === 401) {
-            console.error(">>> [API] 401 Unauthorized detected. Wiping token.");
-            localStorage.removeItem('auth_token');
-            sessionStorage.removeItem('auth_token');
-        }
-        return Promise.reject(error);
-    }
-);
-
 export interface ApiKeyStatus {
     service: string;
     is_valid: boolean;
@@ -110,47 +90,6 @@ export const usageApi = {
         const params: any = { days };
         if (service) params.service = service;
         const response = await api.get<UsageStatsResponse>('/api/usage/stats', { params });
-        return response.data;
-    },
-};
-
-export interface UserProfile {
-    id: string;
-    email: string;
-    username: string;
-    model_preferences?: any;
-}
-
-export interface LoginRequest {
-    email: string;
-    password?: string;
-}
-
-export interface TokenResponse {
-    access_token: string;
-    token_type: string;
-    user_id: string;
-    username: string;
-}
-
-export const authApi = {
-    login: async (data: LoginRequest): Promise<TokenResponse> => {
-        const response = await api.post<TokenResponse>('/api/auth/login', data);
-        return response.data;
-    },
-
-    getProfile: async (): Promise<UserProfile> => {
-        const response = await api.get<UserProfile>('/api/auth/me');
-        return response.data;
-    },
-
-    updatePreferences: async (preferences: any): Promise<any> => {
-        const response = await api.put('/api/auth/user/preferences/', preferences);
-        return response.data;
-    },
-
-    changePassword: async (new_password: string): Promise<any> => {
-        const response = await api.post('/api/auth/change-password', null, { params: { new_password } });
         return response.data;
     },
 };
