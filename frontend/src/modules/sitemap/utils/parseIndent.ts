@@ -41,11 +41,11 @@ export const parseIndentedText = (text: string) => {
         if (prefixMatch) {
             // "1" = 1 parte (Nível 1). "1.1" = 2 partes (Nível 2).
             const parts = prefixMatch[1].split('.').filter(p => p.length > 0);
-            
+
             // O nível agora é exatamente a contagem de partes numéricas.
             // Isso deixa o Nível 0 livre para o Título (Site Map).
             indentLevel = parts.length;
-            
+
             // Remove o prefixo do label visível
             label = originalLineTrimmed.replace(prefixMatch[0], '').trim();
         } else {
@@ -73,7 +73,15 @@ export const parseIndentedText = (text: string) => {
 
         const status = statusMatch ? statusMatch[1] : null;
         const timeline = timelineMatch ? timelineMatch[1] : null;
-        const progress = progressMatch ? progressMatch[1] : null;
+        let progress = progressMatch ? progressMatch[1] : null;
+
+        // Fallback: Extração de Progresso do Próprio Label (Ex: "Progresso: 80%")
+        if (!progress) {
+            const labelProgressMatch = label.match(/Progresso:\s*(\d+)%/i);
+            if (labelProgressMatch) {
+                progress = labelProgressMatch[1];
+            }
+        }
 
         // Limpa o Label original removendo os marcadores de metadados e a descrição
         let cleanLabel = label

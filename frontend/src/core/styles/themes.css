@@ -111,6 +111,29 @@ body.layout-minimal .bg-theme-card,
   background: transparent;
 }
 
+/* 3.1. BRUTALIST MAIN (RAW / BOLD) */
+body.layout-main,
+.preview-container.layout-main {
+  --radius-theme: 0px;
+  --font-heading: 'Anton', sans-serif;
+  --border-width: 2px;
+  --shadow-theme: 8px 8px 0px 0px rgba(0, 0, 0, 1);
+  --theme-padding: 2rem;
+  --theme-gap: 1.5rem;
+}
+
+body.dark.layout-main,
+.preview-container.dark.layout-main {
+  --shadow-theme: 8px 8px 0px 0px var(--primary-color);
+}
+
+body.layout-main .bg-theme-card,
+.preview-container.layout-main .bg-theme-card {
+  background: var(--bg-card);
+  border: var(--border-width) solid var(--text-title);
+  box-shadow: var(--shadow-theme);
+}
+
 /* 4. TECHNICAL ANALYTICS (Control Room / Terminal) */
 body.layout-technical,
 .preview-container.layout-technical {

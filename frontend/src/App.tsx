@@ -11,7 +11,7 @@ import LayoutSelector from './core/components/LayoutSelector';
 
 const SarakConfig = {
   branding: {
-    name: "Sarak - Site Map",
+    name: "Sarak - Maps",
     logoPath: "logo.png"
   },
   defaultTab: 'sitemap-builder',

@@ -59,7 +59,7 @@ const ApiKeysPage: React.FC = () => {
             setUsage(usageRes);
             setCatalogStatus(catalogStatusRes);
             setModels(modelsRes.models || []);
-            
+
             // Carrega preferências do localStorage se existirem
             const savedPrefs = localStorage.getItem('sarak_model_preferences');
             if (savedPrefs) {

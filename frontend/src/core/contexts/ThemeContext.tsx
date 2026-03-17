@@ -24,6 +24,11 @@ export const LAYOUTS = {
     NEBULA: { id: 'nebula', name: 'Nebula Frosted', class: 'layout-glass', animation: 'perspective', emoji: 'cosmic' },
     BLUEPRINT: { id: 'blueprint', name: 'Blueprint Tech', class: 'layout-main', animation: 'none', emoji: 'cyber' },
 
+    // --- TEMAS ESPECIAIS (V2) ---
+    NEON_CIRCUIT: { id: 'neon_circuit', name: 'Neon Circuit', class: 'layout-neon_circuit', animation: 'standard', emoji: 'cyber' },
+    AI_NEURAL: { id: 'ai_neural', name: 'Neural Flux', class: 'layout-ai_neural', animation: 'blur', emoji: 'minimal' },
+    ZEN_PARCHMENT: { id: 'zen_parchment', name: 'Zen Parchment', class: 'layout-zen_parchment', animation: 'blur', emoji: 'minimal' },
+
     // --- TEMAS BÁSICOS ---
     GLASS: { id: 'glass', name: 'Modern Glass', class: 'layout-glass', animation: 'perspective', emoji: 'none' },
     CORPORATE: { id: 'corporate', name: 'Solid Corporate', class: 'layout-corporate', animation: 'fade', emoji: 'none' },
@@ -31,12 +36,12 @@ export const LAYOUTS = {
     TECHNICAL: { id: 'technical', name: 'Technical Analytics', class: 'layout-technical', animation: 'none', emoji: 'cyber' },
     PRESTIGE: { id: 'prestige', name: 'Prestige Editorial', class: 'layout-prestige', animation: 'blur', emoji: 'minimal' },
     ATMOSPHERIC: { id: 'atmospheric', name: 'Deep Atmospheric', class: 'layout-atmospheric', animation: 'perspective', emoji: 'cosmic' },
-    ZEN_PARCHMENT: { id: 'zen_parchment', name: 'Zen Parchment', class: 'layout-zen_parchment', animation: 'blur', emoji: 'minimal' },
     FINANCE_PRO: { id: 'finance_pro', name: 'Finance Pro', class: 'layout-finance_pro', animation: 'slideDown', emoji: 'finance' },
     GAMER_ELITE: { id: 'gamer_elite', name: 'Gamer Elite', class: 'layout-gamer_elite', animation: 'standard', emoji: 'gamer' },
     TERMINAL_RETRO: { id: 'terminal_retro', name: 'Terminal Retro', class: 'layout-terminal', animation: 'slideUp', emoji: 'cyber' },
     FORMAL_EXECUTIVO: { id: 'formal_executivo', name: 'Formal Executivo', class: 'layout-corporate', animation: 'fade', emoji: 'none' },
     APPLE_MACOS: { id: 'apple_macos', name: 'Apple macOS', class: 'layout-glass', animation: 'perspective', emoji: 'none' },
+
 };
 // Preset configurations moved to '../theme-library/presets.js'
 

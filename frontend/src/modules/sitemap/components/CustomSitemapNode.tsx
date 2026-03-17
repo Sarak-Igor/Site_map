@@ -45,6 +45,8 @@ const CustomSitemapNode = ({ data, id }: CustomNodeProps) => {
         index = 0
     } = data;
 
+    const shouldShowProgress = depth === 1 && label.toLowerCase().includes('progresso');
+
     const isHorizontal = targetPosition === Position.Left || targetPosition === Position.Right;
 
     const handleNodeClick = (e: React.MouseEvent) => {
@@ -56,7 +58,7 @@ const CustomSitemapNode = ({ data, id }: CustomNodeProps) => {
 
     // --- HELPER: PROGRESS BAR ---
     const ProgressBar = ({ value, color }: { value: string | undefined, color: string }) => {
-        if (!value) return null;
+        if (!shouldShowProgress || !value) return null;
         const num = parseInt(value);
         if (isNaN(num)) return null;
         return (
@@ -135,20 +137,26 @@ const CustomSitemapNode = ({ data, id }: CustomNodeProps) => {
                 <Handle type="target" position={targetPosition} className="opacity-0" />
 
                 <div className="bg-theme-card border-x-4 border-t-8 rounded-2xl overflow-hidden shadow-xl hover:shadow-2xl transition-all" style={{ borderColor: nodeColor }}>
-                    <div className="px-6 py-4 flex items-center justify-between bg-black/10 border-b border-white/5">
-                        <span className="text-[14px] font-black text-white italic tracking-tighter opacity-80">{timeline || 'PHASE'}</span>
-                        <Layers className="w-4 h-4 opacity-40 group-hover:rotate-12 transition-transform" />
-                    </div>
+                    {timeline && (
+                        <div className="px-6 py-4 flex items-center justify-between bg-black/10 border-b border-white/5">
+                            <span className="text-[14px] font-black text-white italic tracking-tighter opacity-80">{timeline}</span>
+                            <Layers className="w-4 h-4 opacity-40 group-hover:rotate-12 transition-transform" />
+                        </div>
+                    )}
 
                     <div className="p-6 bg-theme-card">
                         <h4 className="text-theme-title font-black text-lg tracking-tighter mb-4 leading-none">{label}</h4>
                         {description && <p className="text-[10px] text-theme-muted mb-5 italic line-clamp-2 leading-relaxed opacity-70">{description}</p>}
 
-                        <div className="flex items-center justify-between mb-2">
-                            <span className="text-[9px] font-black uppercase text-theme-muted tracking-widest">Progress</span>
-                            <span className="text-[10px] font-bold" style={{ color: nodeColor }}>{progress || '0%'}</span>
-                        </div>
-                        <ProgressBar value={progress} color={nodeColor} />
+                        {shouldShowProgress && (
+                            <>
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="text-[9px] font-black uppercase text-theme-muted tracking-widest">Progress</span>
+                                    <span className="text-[10px] font-bold" style={{ color: nodeColor }}>{progress || '0%'}</span>
+                                </div>
+                                <ProgressBar value={progress} color={nodeColor} />
+                            </>
+                        )}
                     </div>
                 </div>
 
@@ -186,40 +194,42 @@ const CustomSitemapNode = ({ data, id }: CustomNodeProps) => {
                     </div>
                 </div>
 
-                <div className="p-6 bg-[#f1f5f9]/50 relative">
-                    <div className="flex justify-between items-center mb-3">
-                        <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Progress Metrics</span>
-                        <span className="text-xs font-black" style={{ color: nodeColor }}>{progress || '0%'}</span>
-                    </div>
-
-                    {/* Barra Estilo Pro Gantt */}
-                    <div className="h-6 bg-slate-200 rounded-lg relative overflow-hidden shadow-inner border border-slate-300/50">
-                        {/* Grid de fundo */}
-                        <div className="absolute inset-0 flex">
-                            {[1, 2, 3, 4].map(i => <div key={i} className="flex-1 border-r border-slate-300 last:border-none" />)}
+                {shouldShowProgress && (
+                    <div className="p-6 bg-[#f1f5f9]/50 relative">
+                        <div className="flex justify-between items-center mb-3">
+                            <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Progress Metrics</span>
+                            <span className="text-xs font-black" style={{ color: nodeColor }}>{progress || '0%'}</span>
                         </div>
 
-                        <motion.div
-                            initial={{ width: 0 }}
-                            animate={{ width: progress || '0%' }}
-                            className="h-full relative z-10 flex items-center justify-end px-2 shadow-lg"
-                            style={{ backgroundColor: nodeColor }}
-                        >
-                            <div className="w-1 h-3 bg-white/40 rounded-full" />
-                        </motion.div>
-                    </div>
+                        {/* Barra Estilo Pro Gantt */}
+                        <div className="h-6 bg-slate-200 rounded-lg relative overflow-hidden shadow-inner border border-slate-300/50">
+                            {/* Grid de fundo */}
+                            <div className="absolute inset-0 flex">
+                                {[1, 2, 3, 4].map(i => <div key={i} className="flex-1 border-r border-slate-300 last:border-none" />)}
+                            </div>
 
-                    <div className="flex justify-between mt-4">
-                        <div className="flex -space-x-2">
-                            {[1, 2, 3].map(i => <div key={i} className="w-6 h-6 rounded-full border-2 border-white bg-slate-300" />)}
+                            <motion.div
+                                initial={{ width: 0 }}
+                                animate={{ width: progress || '0%' }}
+                                className="h-full relative z-10 flex items-center justify-end px-2 shadow-lg"
+                                style={{ backgroundColor: nodeColor }}
+                            >
+                                <div className="w-1 h-3 bg-white/40 rounded-full" />
+                            </motion.div>
                         </div>
-                        {status && (
-                            <span className="text-[8px] font-black uppercase tracking-widest px-2 py-1 rounded bg-white border border-slate-200 shadow-sm text-slate-600">
-                                {status}
-                            </span>
-                        )}
+
+                        <div className="flex justify-between mt-4">
+                            <div className="flex -space-x-2">
+                                {[1, 2, 3].map(i => <div key={i} className="w-6 h-6 rounded-full border-2 border-white bg-slate-300" />)}
+                            </div>
+                            {status && (
+                                <span className="text-[8px] font-black uppercase tracking-widest px-2 py-1 rounded bg-white border border-slate-200 shadow-sm text-slate-600">
+                                    {status}
+                                </span>
+                            )}
+                        </div>
                     </div>
-                </div>
+                )}
 
                 <Handle type="source" position={sourcePosition} className="opacity-0" />
             </motion.div>
@@ -251,7 +261,7 @@ const CustomSitemapNode = ({ data, id }: CustomNodeProps) => {
 
                 <div className={`absolute ${isUp ? 'bottom-0' : 'top-0'} w-[280px] flex flex-col gap-3 p-4 bg-theme-card/30 rounded-2xl border border-white/5`}>
                     <div className="flex flex-col border-l-4 pl-4" style={{ borderColor: nodeColor }}>
-                        <span className="text-[11px] font-black uppercase tracking-wider opacity-60" style={{ color: nodeColor }}>{timeline || 'Strategic Phase'}</span>
+                        {timeline && <span className="text-[11px] font-black uppercase tracking-wider opacity-60" style={{ color: nodeColor }}>{timeline}</span>}
                         <h4 className="text-md font-black text-theme-title leading-tight mt-1 uppercase italic tracking-tighter">{label}</h4>
                     </div>
                     {description && (
@@ -336,7 +346,7 @@ const CustomSitemapNode = ({ data, id }: CustomNodeProps) => {
 
                 <div className="flex flex-col gap-2 relative z-10">
                     <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-bold text-theme-muted uppercase tracking-[0.2em]">{timeline || 'Phase Schedule'}</span>
+                        {timeline && <span className="text-[10px] font-bold text-theme-muted uppercase tracking-[0.2em]">{timeline}</span>}
                         <Layout className="w-4 h-4 text-theme-muted group-hover:text-theme-primary transition-colors" />
                     </div>
                     <h4 className="text-2xl font-black tracking-tighter text-theme-title leading-none mb-2">{label}</h4>
@@ -345,18 +355,28 @@ const CustomSitemapNode = ({ data, id }: CustomNodeProps) => {
                 {description && <p className="text-[11px] text-theme-muted font-medium leading-relaxed italic mb-4 line-clamp-2">{description}</p>}
 
                 <div className="mt-auto pt-4 border-t border-theme-border/10 flex flex-col gap-3">
-                    <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-black text-theme-muted uppercase tracking-widest">{status || 'Ongoing'}</span>
-                        <span className="text-sm font-black text-theme-title">{progress || '0%'}</span>
-                    </div>
-                    <div className="h-2 bg-theme-sidebar/50 rounded-full overflow-hidden p-[2px]">
-                        <motion.div
-                            initial={{ width: 0 }}
-                            animate={{ width: progress || '0%' }}
-                            className="h-full rounded-full transition-all duration-1000"
-                            style={{ backgroundColor: nodeColor }}
-                        />
-                    </div>
+                    {shouldShowProgress ? (
+                        <>
+                            <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-black text-theme-muted uppercase tracking-widest">{status || 'Ongoing'}</span>
+                                <span className="text-sm font-black text-theme-title">{progress || '0%'}</span>
+                            </div>
+                            <div className="h-2 bg-theme-sidebar/50 rounded-full overflow-hidden p-[2px]">
+                                <motion.div
+                                    initial={{ width: 0 }}
+                                    animate={{ width: progress || '0%' }}
+                                    className="h-full rounded-full transition-all duration-1000"
+                                    style={{ backgroundColor: nodeColor }}
+                                />
+                            </div>
+                        </>
+                    ) : (
+                        status && (
+                            <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-black text-theme-muted uppercase tracking-widest">{status}</span>
+                            </div>
+                        )
+                    )}
                 </div>
 
                 <Handle type="source" position={sourcePosition} className="!w-4 !h-4 !bg-theme-card !border-2 !border-theme-border shadow-sm" />
@@ -384,7 +404,7 @@ const CustomSitemapNode = ({ data, id }: CustomNodeProps) => {
                 <div className="relative z-10 flex flex-col gap-4">
                     <div className="flex items-center justify-between border-b pb-3 border-theme-border/20">
                         <div className="px-2 py-0.5 border rounded text-[9px] font-mono font-bold uppercase tracking-widest bg-theme-sidebar" style={{ color: nodeColor, borderColor: `${nodeColor}44` }}>
-                            COORD_{index + 1}.V
+                            NODE_{index + 1}
                         </div>
                         <Grid className="w-4 h-4 opacity-40" />
                     </div>
@@ -393,8 +413,8 @@ const CustomSitemapNode = ({ data, id }: CustomNodeProps) => {
 
                     <div className="grid grid-cols-2 gap-4">
                         <div className="flex flex-col gap-1">
-                            <span className="text-[8px] text-theme-muted font-black uppercase tracking-tighter">Timeline_Target</span>
-                            <span className="text-xs text-theme-title font-mono font-bold">{timeline || 'TBD_STK'}</span>
+                            <span className="text-[8px] text-theme-muted font-black uppercase tracking-tighter">Timeline</span>
+                            <span className="text-xs text-theme-title font-mono font-bold">{timeline || '---'}</span>
                         </div>
                         <div className="flex flex-col gap-1 text-right">
                             <span className="text-[8px] text-theme-muted font-black uppercase tracking-tighter">Status_Flag</span>
@@ -402,22 +422,24 @@ const CustomSitemapNode = ({ data, id }: CustomNodeProps) => {
                         </div>
                     </div>
 
-                    <div className="mt-2 flex flex-col gap-2">
-                        <div className="flex justify-between items-end">
-                            <span className="text-[9px] font-mono opacity-40">PROGRESS_METRIC</span>
-                            <span className="text-xs font-mono font-black">{progress || '0%'}</span>
+                    {shouldShowProgress && (
+                        <div className="mt-2 flex flex-col gap-2">
+                            <div className="justify-between items-end hidden group-hover:flex">
+                                <span className="text-[9px] font-mono opacity-40">PROGRESS_METRIC</span>
+                                <span className="text-xs font-mono font-black">{progress || '0%'}</span>
+                            </div>
+                            <div className="h-4 border p-0.5 bg-theme-sidebar/30" style={{ borderColor: `${nodeColor}66` }}>
+                                <motion.div
+                                    initial={{ width: 0 }}
+                                    animate={{ width: progress || '0%' }}
+                                    className="h-full opacity-60 relative overflow-hidden"
+                                    style={{ backgroundColor: nodeColor }}
+                                >
+                                    <div className="absolute inset-0 translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+                                </motion.div>
+                            </div>
                         </div>
-                        <div className="h-4 border p-0.5 bg-theme-sidebar/30" style={{ borderColor: `${nodeColor}66` }}>
-                            <motion.div
-                                initial={{ width: 0 }}
-                                animate={{ width: progress || '0%' }}
-                                className="h-full opacity-60 relative overflow-hidden"
-                                style={{ backgroundColor: nodeColor }}
-                            >
-                                <div className="absolute inset-0 translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-white/20 to-transparent" />
-                            </motion.div>
-                        </div>
-                    </div>
+                    )}
 
                     {description && <p className="text-[10px] text-theme-muted font-mono leading-relaxed mt-2 border-l-2 pl-3" style={{ borderColor: `${nodeColor}44` }}>SPEC_{index}: {description}</p>}
                 </div>
@@ -444,7 +466,7 @@ const CustomSitemapNode = ({ data, id }: CustomNodeProps) => {
                     <div className="flex justify-between items-center mb-6">
                         <div className="flex items-center gap-2">
                             <Sparkles className="w-4 h-4 text-white/60" />
-                            <span className="text-[10px] text-white/60 font-black uppercase tracking-[0.25em]">{status || 'PREMIUM'}</span>
+                            <span className="text-[10px] text-white/60 font-black uppercase tracking-[0.25em]">{status || ''}</span>
                         </div>
                         {timeline && <span className="text-[10px] font-bold text-white px-3 py-1 bg-white/10 rounded-full border border-white/10">{timeline}</span>}
                     </div>
@@ -453,19 +475,21 @@ const CustomSitemapNode = ({ data, id }: CustomNodeProps) => {
 
                     {description && <p className="text-xs text-white/50 font-medium leading-relaxed mb-6">{description}</p>}
 
-                    <div className="bg-white/5 p-4 rounded-3xl border border-white/5 shadow-inner">
-                        <div className="flex justify-between mb-2">
-                            <span className="text-[10px] font-black text-white/40 uppercase">Completion</span>
-                            <span className="text-xs font-black text-white">{progress || '0%'}</span>
+                    {shouldShowProgress && (
+                        <div className="bg-white/5 p-4 rounded-3xl border border-white/5 shadow-inner">
+                            <div className="flex justify-between mb-2">
+                                <span className="text-[10px] font-black text-white/40 uppercase">Completion</span>
+                                <span className="text-xs font-black text-white">{progress || '0%'}</span>
+                            </div>
+                            <div className="h-2.5 bg-white/5 rounded-full overflow-hidden p-0.5 border border-white/5">
+                                <motion.div
+                                    initial={{ width: 0 }}
+                                    animate={{ width: progress || '0%' }}
+                                    className="h-full rounded-full shadow-[0_0_15px_rgba(255,255,255,0.3)] bg-gradient-to-r from-white/20 to-white"
+                                />
+                            </div>
                         </div>
-                        <div className="h-2.5 bg-white/5 rounded-full overflow-hidden p-0.5 border border-white/5">
-                            <motion.div
-                                initial={{ width: 0 }}
-                                animate={{ width: progress || '0%' }}
-                                className="h-full rounded-full shadow-[0_0_15px_rgba(255,255,255,0.3)] bg-gradient-to-r from-white/20 to-white"
-                            />
-                        </div>
-                    </div>
+                    )}
                 </div>
 
                 <Handle type="source" position={sourcePosition} className="!w-3 !h-3 !border-2 !border-white/50" style={{ backgroundColor: nodeColor }} />
@@ -498,7 +522,6 @@ const CustomSitemapNode = ({ data, id }: CustomNodeProps) => {
                                 <Route className="w-6 h-6 text-white" />
                             </div>
                             <div className="flex flex-col">
-                                <span className="text-[10px] font-black text-amber-400 uppercase tracking-widest leading-none">Checkpoint</span>
                                 <h4 className="text-white font-black text-lg tracking-tight mt-1 leading-none">{label}</h4>
                             </div>
                         </div>
@@ -510,10 +533,12 @@ const CustomSitemapNode = ({ data, id }: CustomNodeProps) => {
                         )}
 
                         <div className="flex items-center justify-between mt-1">
-                            <span className="text-[10px] font-bold text-white/50">{timeline || 'Phase'}</span>
-                            <div className="flex items-center gap-2">
-                                <span className="text-[10px] font-black text-amber-500 uppercase">{progress || '0%'}</span>
-                            </div>
+                            <span className="text-[10px] font-bold text-white/50">{timeline || ''}</span>
+                            {shouldShowProgress && (
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[10px] font-black text-amber-500 uppercase">{progress || '0%'}</span>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>

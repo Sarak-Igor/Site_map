@@ -10,6 +10,7 @@ import { useThemePreview } from './useThemePreview';
 import { ThemeList } from './ThemeList';
 import { ThemeEditor } from './ThemeEditor';
 import { PreviewCanvas } from './PreviewCanvas';
+import { BASE_PRESETS } from '../../theme-library';
 
 const LayoutSelector = () => {
     const {
@@ -25,12 +26,12 @@ const LayoutSelector = () => {
         emojiSet: globalEmojiSet, setEmojiSet: setGlobalEmojiSet
     } = useTheme();
 
-    const [viewMode, setViewMode] = useState('list'); // 'list' ou 'editor'
+    const [viewMode, setViewMode] = useState<'list' | 'grid' | 'editor'>('list');
     const [previewDevice, setPreviewDevice] = useState('desktop');
     const [activePreviewApp, setActivePreviewApp] = useState('dashboard');
     const [openSections, setOpenSections] = useState(['colors', 'geo']);
-    const [editingId, setEditingId] = useState(null);
-    const [toast, setToast] = useState(null);
+    const [editingId, setEditingId] = useState<string | null>(null);
+    const [toast, setToast] = useState<{ type: 'success' | 'warning', message: string } | null>(null);
 
     const {
         previewLayoutId, setPreviewLayoutId,
@@ -55,7 +56,7 @@ const LayoutSelector = () => {
         layouts
     );
 
-    const showToast = (type, message) => {
+    const showToast = (type: 'success' | 'warning', message: string) => {
         setToast({ type, message });
         setTimeout(() => setToast(null), 3000);
     };
@@ -80,23 +81,67 @@ const LayoutSelector = () => {
         setViewMode('list');
     };
 
-    const handleApplyGlobally = () => {
-        setLayout(previewLayoutId);
-        setGlobalAnimationStyle(previewAnimationStyle);
-        setGlobalEmojiSet(previewEmojiSet);
-        setPrimaryColor(previewPrimaryColor);
-        setFontScale(previewFontScale);
-        setNavigationStyle(previewNavigationStyle);
-        setSidebarWidth(previewSidebarWidth);
+    const handleApplyGlobally = (targetId: string | null = null) => {
+        const idToApply = targetId || previewLayoutId;
 
-        Object.entries(config).forEach(([k, v]) => {
-            document.documentElement.style.setProperty(k, v);
-        });
+        if (targetId && targetId !== previewLayoutId) {
+            setPreviewLayoutId(targetId);
+
+            const isCustom = (targetId as string).startsWith('custom-');
+            let targetConfig = config;
+            let targetAnim = previewAnimationStyle;
+            let targetEmoji = previewEmojiSet;
+
+            if (isCustom) {
+                const cleanId = (targetId as string).replace('custom-', '');
+                const theme = (customThemes as any)[cleanId];
+                if (theme) {
+                    targetConfig = theme.config;
+                    targetAnim = theme.animationStyle;
+                    targetEmoji = theme.emojiSet;
+                }
+            } else {
+                const normalizedId = (targetId as string).toLowerCase();
+                const preset = (BASE_PRESETS as any)[normalizedId];
+                if (preset) {
+                    targetConfig = preset;
+                    const native = (layouts as any)[(targetId as string).toUpperCase()];
+                    if (native) {
+                        targetAnim = native.animation;
+                        targetEmoji = native.emoji;
+                    }
+                }
+            }
+
+            setLayout(targetId);
+            setGlobalAnimationStyle(targetAnim);
+            setGlobalEmojiSet(targetEmoji);
+            setPrimaryColor(previewPrimaryColor);
+            setFontScale(previewFontScale);
+            setNavigationStyle(previewNavigationStyle);
+            setSidebarWidth(previewSidebarWidth);
+
+            Object.entries(targetConfig).forEach(([k, v]) => {
+                document.documentElement.style.setProperty(k, v as string);
+            });
+        } else {
+            setLayout(previewLayoutId);
+            setGlobalAnimationStyle(previewAnimationStyle);
+            setGlobalEmojiSet(previewEmojiSet);
+            setPrimaryColor(previewPrimaryColor);
+            setFontScale(previewFontScale);
+            setNavigationStyle(previewNavigationStyle);
+            setSidebarWidth(previewSidebarWidth);
+
+            Object.entries(config).forEach(([k, v]) => {
+                document.documentElement.style.setProperty(k, v as string);
+            });
+        }
 
         showToast('success', 'Theme applied system-wide!');
     };
 
-    const handleEdit = (id, theme) => {
+    const handleEdit = (id: string, theme: any) => {
         const cleanId = id.startsWith('custom-') ? id.replace('custom-', '') : id;
         setEditingId(id.startsWith('custom-') ? cleanId : null);
         setPreviewLayoutId(id);

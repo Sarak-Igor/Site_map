@@ -222,7 +222,7 @@ const SitemapRendererContent = forwardRef(({ rawNodes, rawEdges, templateId, lay
                 const immediateChildren = rawEdges
                     .filter(e => e.source === root.id)
                     .map(e => e.target);
-                
+
                 spineNodes.push(root.id, ...immediateChildren);
             }
 
